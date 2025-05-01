@@ -1,0 +1,48 @@
+package plugin
+
+import (
+	"fmt"
+
+	"github.com/mohamedragab2024/playground/internal/plugins"
+	"github.com/mohamedragab2024/playground/types"
+	"github.com/spf13/cobra"
+)
+
+var (
+	pName string
+	cName string
+)
+
+var addCmd = &cobra.Command{
+	Use:   "add",
+	Short: "Add a new plugin",
+	Long:  `Add a new plugin to the cluster`,
+	Run: func(cmd *cobra.Command, args []string) {
+		// Get the name of the plugin from the flags
+		plugins := []plugins.Plugin{
+			&plugins.Argocd{},
+		}
+		c := types.Cluster{
+			Name: cName,
+		}
+		c.SetKubeConfig()
+
+		for _, plugin := range plugins {
+			if plugin.GetName() == pName {
+				err := plugin.Install(c.KubeConfig)
+				if err != nil {
+					fmt.Printf("Error installing plugin: %v\n", err)
+				}
+			}
+		}
+	},
+}
+
+func init() {
+	flags := addCmd.Flags()
+	flags.StringVarP(&pName, "name", "n", "", "Name of the plugin")
+	flags.StringVarP(&cName, "cluster", "c", "", "Name of the cluster")
+	addCmd.MarkFlagRequired("name")
+	addCmd.MarkFlagRequired("cluster")
+	PluginCmd.AddCommand(addCmd)
+}
