@@ -19,17 +19,21 @@ var addCmd = &cobra.Command{
 	Long:  `Add a new plugin to the cluster`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Get the name of the plugin from the flags
-		plugins := []plugins.Plugin{
-			&plugins.Argocd{},
-		}
 		c := types.Cluster{
 			Name: cName,
 		}
+
 		c.SetKubeConfig()
+
+		plugins := []plugins.Plugin{
+			&plugins.Argocd{
+				KubeConfig: c.KubeConfig,
+			},
+		}
 
 		for _, plugin := range plugins {
 			if plugin.GetName() == pName {
-				err := plugin.Install(c.KubeConfig)
+				err := plugin.Install()
 				if err != nil {
 					fmt.Printf("Error installing plugin: %v\n", err)
 				}

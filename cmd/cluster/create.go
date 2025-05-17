@@ -13,7 +13,7 @@ var (
 	cCreateSize           int
 	K3S_CREATE_MASTER_CMD = `curl -sfL https://get.k3s.io | sh -s - --disable=servicelb --disable=traefik`
 	GET_ACCESS_TOKEN_CMD  = `sudo cat /var/lib/rancher/k3s/server/node-token`
-	K3S_CREATE_WORKER_CMD = `curl -sfL https://get.k3s.io | K3S_URL=https://%s:6443 K3S_TOKEN="%s" sh -`
+	K3S_CREATE_WORKER_CMD = `curl -sfL https://get.k3s.io | K3S_URL=https://%s:6443 K3S_TOKEN=%s sh -`
 	KUBE_CONFIG_CMD       = `sudo cat /etc/rancher/k3s/k3s.yaml`
 	K3S_INSTALL_TIMEOUT   = 300 // 5 minutes timeout for K3S installation
 )
@@ -61,7 +61,7 @@ var createCmd = &cobra.Command{
 		for i := 0; i < (cCreateSize - 1); i++ {
 			nodeName := fmt.Sprintf("%s-worker-%d", cCreateName, i+1)
 			command := fmt.Sprintf(K3S_CREATE_WORKER_CMD, masterIP, accessToken)
-			logger.Infoln("Executing command: %s", command)
+
 			_, err = client.ExcuteShellWithTimeout(
 				nodeName,
 				command,

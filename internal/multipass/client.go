@@ -190,16 +190,18 @@ func (m *MultipassClient) ExcuteShellWithTimeout(name string, command string, ti
 		ctx, cancel = context.WithTimeout(context.Background(), time.Duration(timeoutSeconds)*time.Second)
 		defer cancel()
 	}
+	fmt.Printf("Excute command:[%s]", command)
 
 	cmd := exec.CommandContext(ctx, m.BinaryPath, "exec", name, "--", "bash", "-c", command)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-
 	if err := cmd.Run(); err != nil {
+		logger.Errorln("Failed to execute command on node '%s': %v", name, err)
 		if ctx.Err() == context.DeadlineExceeded {
 			return stdout.String(), fmt.Errorf("command timed out after %d seconds", timeoutSeconds)
 		}
+
 		errMsg := fmt.Sprintf("Failed to execute shell command on node '%s': %s", name, stderr.String())
 		logger.Errorln(errMsg)
 		return "", fmt.Errorf("failed to execute shell command on node '%s': %s - %w", name, stderr.String(), err)

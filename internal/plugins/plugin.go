@@ -1,10 +1,18 @@
 package plugins
 
-type (
-	Plugin interface {
-		GetName() string
-		Install(kubeConfig string, ensure ...bool) error
-		Uninstall(KubeConfig string, ensure ...bool) error
-		GetValuesContent() (string, error)
-	}
-)
+import "github.com/mohamedragab2024/playground/internal/installer"
+
+type Plugin interface {
+	GetName() string
+	GetInstaller() (installer.Installer, error)
+	Install(ensure ...bool) error
+	Uninstall(ensure ...bool) error
+	Status() string
+}
+
+var List = []Plugin{
+	&Argocd{},
+	&CertManager{},
+	&LoadBalancer{},
+	&Nginx{},
+}
