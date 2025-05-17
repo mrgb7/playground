@@ -1,6 +1,6 @@
 package plugins
 
-import "github.com/mohamedragab2024/playground/internal/installer"
+import "github.com/mrgb7/playground/internal/installer"
 
 type LoadBalancer struct{}
 

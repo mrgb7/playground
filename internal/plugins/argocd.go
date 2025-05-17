@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/mohamedragab2024/playground/internal/installer"
-	"github.com/mohamedragab2024/playground/internal/k8s"
-	"github.com/mohamedragab2024/playground/pkg/logger"
+	"github.com/mrgb7/playground/internal/installer"
+	"github.com/mrgb7/playground/internal/k8s"
+	"github.com/mrgb7/playground/pkg/logger"
 	"gopkg.in/yaml.v3"
 )
 

@@ -1,7 +1,7 @@
 package cluster
 
 import (
-	"github.com/mohamedragab2024/playground/cmd/cluster/plugin"
+	"github.com/mrgb7/playground/cmd/cluster/plugin"
 	"github.com/spf13/cobra"
 )
 

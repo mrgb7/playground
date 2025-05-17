@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mohamedragab2024/playground/internal/multipass"
+	"github.com/mrgb7/playground/internal/multipass"
 )
 
 type Cluster struct {

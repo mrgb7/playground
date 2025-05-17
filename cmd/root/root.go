@@ -3,8 +3,8 @@ package root
 import (
 	"os"
 
-	"github.com/mohamedragab2024/playground/cmd/cluster"
-	"github.com/mohamedragab2024/playground/pkg/logger"
+	"github.com/mrgb7/playground/cmd/cluster"
+	"github.com/mrgb7/playground/pkg/logger"
 	"github.com/spf13/cobra"
 )
 

@@ -3,8 +3,8 @@ package plugin
 import (
 	"fmt"
 
-	"github.com/mohamedragab2024/playground/internal/plugins"
-	"github.com/mohamedragab2024/playground/types"
+	"github.com/mrgb7/playground/internal/plugins"
+	"github.com/mrgb7/playground/types"
 	"github.com/spf13/cobra"
 )
 

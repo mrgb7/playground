@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mohamedragab2024/playground/pkg/logger"
+	"github.com/mrgb7/playground/pkg/logger"
 )
 
 type MultiPassList struct {

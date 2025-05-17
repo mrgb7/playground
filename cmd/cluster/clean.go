@@ -1,8 +1,8 @@
 package cluster
 
 import (
-	"github.com/mohamedragab2024/playground/internal/multipass"
-	"github.com/mohamedragab2024/playground/pkg/logger"
+	"github.com/mrgb7/playground/internal/multipass"
+	"github.com/mrgb7/playground/pkg/logger"
 	"github.com/spf13/cobra"
 )
 

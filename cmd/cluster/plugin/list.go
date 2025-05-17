@@ -1,7 +1,7 @@
 package plugin
 
 import (
-	"github.com/mohamedragab2024/playground/internal/plugins"
+	"github.com/mrgb7/playground/internal/plugins"
 	"github.com/spf13/cobra"
 )
 
