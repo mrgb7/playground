@@ -23,21 +23,34 @@ var addCmd = &cobra.Command{
 			Name: cName,
 		}
 
+		ip := c.GetMasterIP()
+
 		c.SetKubeConfig()
+		lb, err := plugins.NewLoadBalancer(c.KubeConfig, ip)
+		if err != nil {
+			panic(err)
+		}
 
 		plugins := []plugins.Plugin{
 			&plugins.Argocd{
 				KubeConfig: c.KubeConfig,
 			},
+			lb,
 		}
+
+		found := false
 
 		for _, plugin := range plugins {
 			if plugin.GetName() == pName {
+				found = true
 				err := plugin.Install()
 				if err != nil {
 					fmt.Printf("Error installing plugin: %v\n", err)
 				}
 			}
+		}
+		if !found {
+			fmt.Printf("Plugin %s not found\n", pName)
 		}
 	},
 }

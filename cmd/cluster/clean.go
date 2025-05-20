@@ -1,6 +1,8 @@
 package cluster
 
 import (
+	"sync"
+
 	"github.com/mrgb7/playground/internal/multipass"
 	"github.com/mrgb7/playground/pkg/logger"
 	"github.com/spf13/cobra"
@@ -15,6 +17,7 @@ var cleanCmd = &cobra.Command{
 	Short: "Clean up cluster resources",
 	Long:  `Clean up cluster resources, including stopping and removing nodes`,
 	Run: func(cmd *cobra.Command, args []string) {
+		var wg sync.WaitGroup
 		client := multipass.NewMultipassClient()
 
 		if !client.IsMultipassInstalled() {
@@ -27,10 +30,11 @@ var cleanCmd = &cobra.Command{
 			logger.Infoln("Cleaning up resources for cluster '%s'...", clusterName)
 
 			// Delete the cluster
-			if err := client.DeleteCluster(clusterName); err != nil {
+			if err := client.DeleteCluster(clusterName, &wg); err != nil {
 				logger.Errorln("Failed to clean up cluster: %v", err)
 				return
 			}
+			wg.Wait() // Wait for all goroutines to complete
 
 			logger.Successln("Successfully cleaned up cluster '%s'", clusterName)
 		}

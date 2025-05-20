@@ -53,3 +53,14 @@ func (c *Cluster) SetKubeConfig() error {
 	c.KubeConfig = res
 	return nil
 }
+
+func (c *Cluster) GetMasterIP() string {
+	masterNodeName := fmt.Sprintf("%s-master", c.Name)
+	cl := multipass.NewMultipassClient()
+	// Get the master node IP
+	masterIP, err := cl.GetNodeIP(masterNodeName)
+	if err != nil {
+		return ""
+	}
+	return masterIP
+}

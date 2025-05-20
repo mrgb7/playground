@@ -44,7 +44,6 @@ func (a *Argocd) Install(ensure ...bool) error {
 }
 
 func (a *Argocd) Uninstall(ensure ...bool) error {
-	fmt.Println("Uninstalling argocd")
 	i, err := a.GetInstaller()
 	if err != nil {
 		return fmt.Errorf("failed to get installer: %w", err)
@@ -53,7 +52,6 @@ func (a *Argocd) Uninstall(ensure ...bool) error {
 	if err != nil {
 		return fmt.Errorf("failed to uninstall argocd: %w", err)
 	}
-	fmt.Println("Uninstalling argocd done")
 	return nil
 }
 
@@ -105,7 +103,7 @@ func (a *Argocd) Status() string {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	ns, err := c.GetNameSpace("argocd", ctx)
+	ns, err := c.GetNameSpace(ArgocdNamespace, ctx)
 	if ns == "" || err != nil {
 		logger.Error("failed to get argocd namespace: %v", err)
 		return "Not installed"
