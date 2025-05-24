@@ -97,7 +97,7 @@ var createCmd = &cobra.Command{
 		if err := createkubeConfigFile(kubConfig); err != nil {
 			logger.Errorln("Failed to update kubeconfig: %v", err)
 			logger.Warnln("Cluster created successfully, but kubeconfig update failed.")
-			logger.Infoln("You can manually retrieve the kubeconfig using: playground cluster kubeconfig --name %s", cCreateName)
+			logger.Infof("You can manually retrieve the kubeconfig using: playground cluster kubeconfig --name %s", cCreateName)
 		} else {
 			logger.Successln("Successfully updated kubeconfig.")
 		}
