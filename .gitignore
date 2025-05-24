@@ -52,3 +52,7 @@ Thumbs.db
 # Temp directories
 /tmp/
 /temp/
+
+# Build artifacts
+playground
+/playground
