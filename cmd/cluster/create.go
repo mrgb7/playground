@@ -47,8 +47,7 @@ func validateClusterName(name string) error {
 	}
 	
 	// Check for valid characters (alphanumeric and hyphens, no spaces)
-	validName := regexp.MustCompile(`^[a-zA-Z0-9-]+$`)
-	if !validName.MatchString(name) {
+	if !validClusterNameRegex.MatchString(name) {
 		return fmt.Errorf("cluster name can only contain alphanumeric characters and hyphens")
 	}
 	
