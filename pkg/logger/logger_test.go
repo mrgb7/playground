@@ -18,7 +18,7 @@ func TestLoggerFunctions(t *testing.T) {
 				t.Errorf("Info function panicked: %v", r)
 			}
 		}()
-		Info("test message %s", []interface{}{"arg"})
+		Info("test message %s", "arg")
 	})
 	
 	t.Run("Infoln", func(t *testing.T) {
