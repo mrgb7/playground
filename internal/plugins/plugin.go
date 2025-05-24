@@ -10,10 +10,10 @@ type Plugin interface {
 	Status() string
 }
 
-type FactoryAwarePlugin interface {
+type Factory interface {
 	Plugin
-	InstallWithFactory(kubeConfig, clusterName string, ensure ...bool) error
-	UninstallWithFactory(kubeConfig, clusterName string, ensure ...bool) error
+	FactoryInstall(kubeConfig, clusterName string, ensure ...bool) error
+	FactoryUninstall(kubeConfig, clusterName string, ensure ...bool) error
 }
 
 func CreatePluginsList(kubeConfig, masterClusterIP string) ([]Plugin, error) {

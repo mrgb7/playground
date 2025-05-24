@@ -35,9 +35,9 @@ var addCmd = &cobra.Command{
 			if plugin.GetName() == pName {
 				found = true
 				
-				if factoryAwarePlugin, ok := plugin.(plugins.FactoryAwarePlugin); ok {
+				if factory, ok := plugin.(plugins.Factory); ok {
 					logger.Info("Using factory-based installation for plugin: %s", pName)
-					err := factoryAwarePlugin.InstallWithFactory(c.KubeConfig, c.Name)
+					err := factory.FactoryInstall(c.KubeConfig, c.Name)
 					if err != nil {
 						logger.Error("Error installing plugin with factory installer: %v", err)
 						logger.Info("Falling back to regular installation...")

@@ -34,7 +34,7 @@ func TestIsArgoCDRunning(t *testing.T) {
 	}
 }
 
-func TestCreateArgoInstallOptions(t *testing.T) {
+func TestNewArgoOptions(t *testing.T) {
 	tests := []struct {
 		name         string
 		pluginName   string
@@ -87,33 +87,33 @@ func TestCreateArgoInstallOptions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockPlugin := &MockPlugin{name: tt.pluginName}
-			options := CreateArgoInstallOptions(mockPlugin)
+			mock := &MockPlugin{name: tt.pluginName}
+			opts := NewArgoOptions(mock)
 
-			if options.ApplicationName != tt.expectedApp {
-				t.Errorf("ApplicationName = %v, expected %v", options.ApplicationName, tt.expectedApp)
+			if opts.ApplicationName != tt.expectedApp {
+				t.Errorf("ApplicationName = %v, expected %v", opts.ApplicationName, tt.expectedApp)
 			}
 
-			if options.RepoURL != tt.expectedRepo {
-				t.Errorf("RepoURL = %v, expected %v", options.RepoURL, tt.expectedRepo)
+			if opts.RepoURL != tt.expectedRepo {
+				t.Errorf("RepoURL = %v, expected %v", opts.RepoURL, tt.expectedRepo)
 			}
 
-			if options.Path != tt.expectedPath {
-				t.Errorf("Path = %v, expected %v", options.Path, tt.expectedPath)
+			if opts.Path != tt.expectedPath {
+				t.Errorf("Path = %v, expected %v", opts.Path, tt.expectedPath)
 			}
 
-			if options.Namespace != tt.expectedNS {
-				t.Errorf("Namespace = %v, expected %v", options.Namespace, tt.expectedNS)
+			if opts.Namespace != tt.expectedNS {
+				t.Errorf("Namespace = %v, expected %v", opts.Namespace, tt.expectedNS)
 			}
 
-			if options.TargetRevision != "main" {
-				t.Errorf("TargetRevision = %v, expected 'main'", options.TargetRevision)
+			if opts.TargetRevision != "main" {
+				t.Errorf("TargetRevision = %v, expected 'main'", opts.TargetRevision)
 			}
 		})
 	}
 }
 
-func TestCreateInstaller(t *testing.T) {
+func TestNewInstaller(t *testing.T) {
 	tests := []struct {
 		name         string
 		kubeConfig   string
@@ -139,8 +139,8 @@ func TestCreateInstaller(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockPlugin := &MockPlugin{name: tt.pluginName}
-			installer, err := CreateInstaller(mockPlugin, tt.kubeConfig, tt.clusterName)
+			mock := &MockPlugin{name: tt.pluginName}
+			inst, err := NewInstaller(mock, tt.kubeConfig, tt.clusterName)
 
 			if tt.expectError && err == nil {
 				t.Errorf("Expected error but got none")
@@ -150,7 +150,7 @@ func TestCreateInstaller(t *testing.T) {
 				t.Errorf("Unexpected error: %v", err)
 			}
 
-			if !tt.expectError && installer == nil {
+			if !tt.expectError && inst == nil {
 				t.Errorf("Expected installer but got nil")
 			}
 		})

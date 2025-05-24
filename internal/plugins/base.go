@@ -19,42 +19,42 @@ func NewBasePlugin(kubeConfig string, plugin Plugin) *BasePlugin {
 	}
 }
 
-func (b *BasePlugin) InstallWithFactory(kubeConfig, clusterName string, ensure ...bool) error {
+func (b *BasePlugin) FactoryInstall(kubeConfig, clusterName string, ensure ...bool) error {
 	logger.Info("Starting factory-based installation for plugin: %s", b.plugin.GetName())
 	
-	installerFactory, err := CreateInstaller(b.plugin, kubeConfig, clusterName)
+	inst, err := NewInstaller(b.plugin, kubeConfig, clusterName)
 	if err != nil {
 		return fmt.Errorf("failed to create installer from factory: %w", err)
 	}
 
-	_, isArgoInstaller := installerFactory.(*installer.ArgoInstaller)
+	_, isArgo := inst.(*installer.ArgoInstaller)
 	
-	if isArgoInstaller {
+	if isArgo {
 		logger.Info("Using ArgoCD installer for %s", b.plugin.GetName())
-		options := CreateArgoInstallOptions(b.plugin)
-		return installerFactory.Install(options)
+		options := NewArgoOptions(b.plugin)
+		return inst.Install(options)
 	} else {
 		logger.Info("Using Helm installer for %s", b.plugin.GetName())
-		return installerFactory.Install(&installer.InstallOptions{})
+		return inst.Install(&installer.InstallOptions{})
 	}
 }
 
-func (b *BasePlugin) UninstallWithFactory(kubeConfig, clusterName string, ensure ...bool) error {
+func (b *BasePlugin) FactoryUninstall(kubeConfig, clusterName string, ensure ...bool) error {
 	logger.Info("Starting factory-based uninstallation for plugin: %s", b.plugin.GetName())
 	
-	installerFactory, err := CreateInstaller(b.plugin, kubeConfig, clusterName)
+	inst, err := NewInstaller(b.plugin, kubeConfig, clusterName)
 	if err != nil {
 		return fmt.Errorf("failed to create installer from factory: %w", err)
 	}
 
-	_, isArgoInstaller := installerFactory.(*installer.ArgoInstaller)
+	_, isArgo := inst.(*installer.ArgoInstaller)
 	
-	if isArgoInstaller {
+	if isArgo {
 		logger.Info("Using ArgoCD installer for %s removal", b.plugin.GetName())
-		options := CreateArgoInstallOptions(b.plugin)
-		return installerFactory.UnInstall(options)
+		options := NewArgoOptions(b.plugin)
+		return inst.UnInstall(options)
 	} else {
 		logger.Info("Using Helm installer for %s removal", b.plugin.GetName())
-		return installerFactory.UnInstall(&installer.InstallOptions{})
+		return inst.UnInstall(&installer.InstallOptions{})
 	}
 } 

@@ -16,16 +16,16 @@ The factory-based plugin system provides intelligent installation management by:
 
 1. **Installer Factory** (`utils.go`)
    - `IsArgoCDRunning()`: Detects if ArgoCD is operational
-   - `CreateInstaller()`: Returns appropriate installer based on ArgoCD status
-   - `CreateArgoInstallOptions()`: Creates ArgoCD application specifications
+   - `NewInstaller()`: Returns appropriate installer based on ArgoCD status
+   - `NewArgoOptions()`: Creates ArgoCD application specifications
 
 2. **Base Plugin** (`base.go`)
    - `BasePlugin`: Provides factory-based installation capabilities
-   - `InstallWithFactory()`: Factory-based installation method
-   - `UninstallWithFactory()`: Factory-based uninstallation method
+   - `FactoryInstall()`: Factory-based installation method
+   - `FactoryUninstall()`: Factory-based uninstallation method
 
 3. **Plugin Interface** (`plugin.go`)
-   - `FactoryAwarePlugin`: Extended interface for factory-aware plugins
+   - `Factory`: Extended interface for factory-aware plugins
    - Backward compatibility with existing `Plugin` interface
 
 ### Plugin Enhancement
@@ -132,10 +132,10 @@ playground cluster plugin remove --name cert-manager --cluster my-cluster
 cm := plugins.NewCertManager(kubeConfig)
 
 // Use factory-based installation
-err := cm.InstallWithFactory(kubeConfig, clusterName)
+err := cm.FactoryInstall(kubeConfig, clusterName)
 
 // Use factory-based uninstallation  
-err := cm.UninstallWithFactory(kubeConfig, clusterName)
+err := cm.FactoryUninstall(kubeConfig, clusterName)
 ```
 
 ## Benefits
@@ -167,8 +167,8 @@ The system provides comprehensive error handling:
 4. **Logging**: Comprehensive logging for troubleshooting
 
 ```go
-if factoryAwarePlugin, ok := plugin.(plugins.FactoryAwarePlugin); ok {
-    err := factoryAwarePlugin.InstallWithFactory(kubeConfig, clusterName)
+if factory, ok := plugin.(plugins.Factory); ok {
+    err := factory.FactoryInstall(kubeConfig, clusterName)
     if err != nil {
         // Fallback to regular installation
         err = plugin.Install()
@@ -253,8 +253,8 @@ err := plugin.Install()
 
 When adding new plugins:
 
-1. Implement the `SmartPlugin` interface
-2. Embed `BasePlugin` for smart capabilities
-3. Add mapping in `CreateArgoInstallOptions()`
+1. Implement the `Factory` interface
+2. Embed `BasePlugin` for factory capabilities
+3. Add mapping in `NewArgoOptions()`
 4. Create comprehensive tests
 5. Update documentation 

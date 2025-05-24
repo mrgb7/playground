@@ -66,7 +66,7 @@ func IsArgoCDRunning(kubeConfig string) bool {
 	return false
 }
 
-func CreateInstaller(plugin Plugin, kubeConfig, clusterName string) (installer.Installer, error) {
+func NewInstaller(plugin Plugin, kubeConfig, clusterName string) (installer.Installer, error) {
 	if IsArgoCDRunning(kubeConfig) {
 		logger.Info("ArgoCD detected - creating ArgoCD installer for plugin: %s", plugin.GetName())
 		
@@ -83,7 +83,7 @@ func CreateInstaller(plugin Plugin, kubeConfig, clusterName string) (installer.I
 	return plugin.GetInstaller()
 }
 
-func CreateArgoInstallOptions(plugin Plugin) *installer.InstallOptions {
+func NewArgoOptions(plugin Plugin) *installer.InstallOptions {
 	pluginName := plugin.GetName()
 	
 	switch pluginName {
