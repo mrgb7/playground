@@ -20,7 +20,7 @@ examples and usage of using your application.`,
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		logger.Errorln("%v", err)
+		logger.Errorln("Error: %v", err)
 		os.Exit(1)
 	}
 }
