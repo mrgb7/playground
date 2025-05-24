@@ -78,12 +78,12 @@ var createCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		// Validate inputs
 		if err := validateClusterName(cCreateName); err != nil {
-			logger.Errorln("Invalid cluster name: %v", err)
+			logger.Errorf("Invalid cluster name: %v", err)
 			return
 		}
 		
 		if err := validateClusterSize(cCreateSize); err != nil {
-			logger.Errorln("Invalid cluster size: %v", err)
+			logger.Errorf("Invalid cluster size: %v", err)
 			return
 		}
 		
