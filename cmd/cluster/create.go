@@ -73,19 +73,21 @@ var createCmd = &cobra.Command{
 		for i := 0; i < cCreateSize-1; i++ {
 			wg.Add(1)
 			go func(i int) {
+				defer wg.Done()
 				nodeName := fmt.Sprintf("%s-worker-%d", cCreateName, i+1)
-				_, err = client.ExcuteShellWithTimeout(
+				_, err := client.ExcuteShellWithTimeout(
 					nodeName,
 					fmt.Sprintf(K3S_CREATE_WORKER_CMD, masterIP, accessToken),
 					K3S_INSTALL_TIMEOUT,
 				)
 				if err != nil {
 					logger.Errorln("Failed to install K3S on worker node %s: %v", nodeName, err)
-					return
+					// Note: We don't return here to allow other workers to continue
+					// The error will be logged but won't stop the entire process
+				} else {
+					logger.Successln("Successfully configured worker node: %s", nodeName)
 				}
-				wg.Done()
 			}(i)
-
 		}
 		wg.Wait()
 
@@ -94,8 +96,8 @@ var createCmd = &cobra.Command{
 		logger.Infoln("Attempting to update kubeconfig...")
 		if err := createkubeConfigFile(kubConfig); err != nil {
 			logger.Errorln("Failed to update kubeconfig: %v", err)
-			// Not returning an error here as the cluster is created,
-			// but kubeconfig update failed. User can retrieve it manually.
+			logger.Warnln("Cluster created successfully, but kubeconfig update failed.")
+			logger.Infoln("You can manually retrieve the kubeconfig using: playground cluster kubeconfig --name %s", cCreateName)
 		} else {
 			logger.Successln("Successfully updated kubeconfig.")
 		}
