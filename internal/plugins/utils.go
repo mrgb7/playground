@@ -66,9 +66,9 @@ func IsArgoCDRunning(kubeConfig string) bool {
 	return false
 }
 
-func GetSmartInstaller(plugin Plugin, kubeConfig, clusterName string) (installer.Installer, error) {
+func CreateInstaller(plugin Plugin, kubeConfig, clusterName string) (installer.Installer, error) {
 	if IsArgoCDRunning(kubeConfig) {
-		logger.Info("ArgoCD detected - using ArgoCD installer for plugin: %s", plugin.GetName())
+		logger.Info("ArgoCD detected - creating ArgoCD installer for plugin: %s", plugin.GetName())
 		
 		argoInstaller, err := installer.NewArgoInstaller(kubeConfig, clusterName)
 		if err != nil {
@@ -79,7 +79,7 @@ func GetSmartInstaller(plugin Plugin, kubeConfig, clusterName string) (installer
 		return argoInstaller, nil
 	}
 
-	logger.Info("ArgoCD not detected - using Helm installer for plugin: %s", plugin.GetName())
+	logger.Info("ArgoCD not detected - creating Helm installer for plugin: %s", plugin.GetName())
 	return plugin.GetInstaller()
 }
 

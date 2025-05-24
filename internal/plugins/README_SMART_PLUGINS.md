@@ -1,10 +1,10 @@
-# Smart Plugin Installation System
+# Factory-Based Plugin Installation System
 
-This document describes the smart plugin installation system that automatically detects if ArgoCD is running in the cluster and chooses the appropriate installer (ArgoCD or Helm) accordingly.
+This document describes the factory-based plugin installation system that automatically detects if ArgoCD is running in the cluster and chooses the appropriate installer (ArgoCD or Helm) accordingly.
 
 ## Overview
 
-The smart plugin system provides intelligent installation management by:
+The factory-based plugin system provides intelligent installation management by:
 - **Auto-detecting ArgoCD**: Checks if ArgoCD is running and ready in the cluster
 - **Adaptive Installation**: Uses ArgoCD installer when available, falls back to Helm
 - **Unified Interface**: Provides a consistent experience regardless of the underlying installer
@@ -14,28 +14,28 @@ The smart plugin system provides intelligent installation management by:
 
 ### Components
 
-1. **Smart Detection** (`utils.go`)
+1. **Installer Factory** (`utils.go`)
    - `IsArgoCDRunning()`: Detects if ArgoCD is operational
-   - `GetSmartInstaller()`: Returns appropriate installer based on ArgoCD status
+   - `CreateInstaller()`: Returns appropriate installer based on ArgoCD status
    - `CreateArgoInstallOptions()`: Creates ArgoCD application specifications
 
 2. **Base Plugin** (`base.go`)
-   - `BasePlugin`: Provides smart installation capabilities
-   - `SmartInstall()`: Intelligent installation method
-   - `SmartUninstall()`: Intelligent uninstallation method
+   - `BasePlugin`: Provides factory-based installation capabilities
+   - `InstallWithFactory()`: Factory-based installation method
+   - `UninstallWithFactory()`: Factory-based uninstallation method
 
 3. **Plugin Interface** (`plugin.go`)
-   - `SmartPlugin`: Extended interface for smart-aware plugins
+   - `FactoryAwarePlugin`: Extended interface for factory-aware plugins
    - Backward compatibility with existing `Plugin` interface
 
 ### Plugin Enhancement
 
-Each plugin now embeds `BasePlugin` to gain smart installation capabilities:
+Each plugin now embeds `BasePlugin` to gain factory-based installation capabilities:
 
 ```go
 type CertManager struct {
     KubeConfig string
-    *BasePlugin  // Embedded for smart functionality
+    *BasePlugin  // Embedded for factory functionality
 }
 
 func NewCertManager(kubeConfig string) *CertManager {
@@ -66,7 +66,7 @@ func IsArgoCDRunning(kubeConfig string) bool {
 
 ## Installation Flow
 
-### Smart Installation Process
+### Factory-Based Installation Process
 
 ```
 Plugin Installation Request
@@ -115,27 +115,27 @@ Each plugin has predefined ArgoCD application configurations:
 
 ### CLI Commands
 
-The existing CLI commands automatically use smart installation:
+The existing CLI commands automatically use factory-based installation:
 
 ```bash
-# Smart installation - uses ArgoCD if available, otherwise Helm
+# Factory-based installation - uses ArgoCD if available, otherwise Helm
 playground cluster plugin add --name cert-manager --cluster my-cluster
 
-# Smart removal - uses same installer as installation
+# Factory-based removal - uses same installer as installation
 playground cluster plugin remove --name cert-manager --cluster my-cluster
 ```
 
 ### Programmatic Usage
 
 ```go
-// Create plugin with smart capabilities
+// Create plugin with factory capabilities
 cm := plugins.NewCertManager(kubeConfig)
 
-// Use smart installation
-err := cm.SmartInstall(kubeConfig, clusterName)
+// Use factory-based installation
+err := cm.InstallWithFactory(kubeConfig, clusterName)
 
-// Use smart uninstallation  
-err := cm.SmartUninstall(kubeConfig, clusterName)
+// Use factory-based uninstallation  
+err := cm.UninstallWithFactory(kubeConfig, clusterName)
 ```
 
 ## Benefits
@@ -167,8 +167,8 @@ The system provides comprehensive error handling:
 4. **Logging**: Comprehensive logging for troubleshooting
 
 ```go
-if smartPlugin, ok := plugin.(plugins.SmartPlugin); ok {
-    err := smartPlugin.SmartInstall(kubeConfig, clusterName)
+if factoryAwarePlugin, ok := plugin.(plugins.FactoryAwarePlugin); ok {
+    err := factoryAwarePlugin.InstallWithFactory(kubeConfig, clusterName)
     if err != nil {
         // Fallback to regular installation
         err = plugin.Install()

@@ -30,11 +30,11 @@ var removeCmd = &cobra.Command{
 			if plugin.GetName() == pName {
 				found = true
 				
-				if smartPlugin, ok := plugin.(plugins.SmartPlugin); ok {
-					logger.Info("Using smart uninstallation for plugin: %s", pName)
-					err := smartPlugin.SmartUninstall(c.KubeConfig, c.Name)
+				if factoryAwarePlugin, ok := plugin.(plugins.FactoryAwarePlugin); ok {
+					logger.Info("Using factory-based uninstallation for plugin: %s", pName)
+					err := factoryAwarePlugin.UninstallWithFactory(c.KubeConfig, c.Name)
 					if err != nil {
-						logger.Error("Error uninstalling plugin with smart installer: %v", err)
+						logger.Error("Error uninstalling plugin with factory installer: %v", err)
 						logger.Info("Falling back to regular uninstallation...")
 						err = plugin.Uninstall()
 						if err != nil {
@@ -43,7 +43,7 @@ var removeCmd = &cobra.Command{
 							logger.Info("Successfully uninstalled %s using regular installer", pName)
 						}
 					} else {
-						logger.Info("Successfully uninstalled %s using smart installer", pName)
+						logger.Info("Successfully uninstalled %s using factory installer", pName)
 					}
 				} else {
 					logger.Info("Using regular uninstallation for plugin: %s", pName)

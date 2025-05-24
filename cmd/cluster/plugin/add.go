@@ -35,11 +35,11 @@ var addCmd = &cobra.Command{
 			if plugin.GetName() == pName {
 				found = true
 				
-				if smartPlugin, ok := plugin.(plugins.SmartPlugin); ok {
-					logger.Info("Using smart installation for plugin: %s", pName)
-					err := smartPlugin.SmartInstall(c.KubeConfig, c.Name)
+				if factoryAwarePlugin, ok := plugin.(plugins.FactoryAwarePlugin); ok {
+					logger.Info("Using factory-based installation for plugin: %s", pName)
+					err := factoryAwarePlugin.InstallWithFactory(c.KubeConfig, c.Name)
 					if err != nil {
-						logger.Error("Error installing plugin with smart installer: %v", err)
+						logger.Error("Error installing plugin with factory installer: %v", err)
 						logger.Info("Falling back to regular installation...")
 						err = plugin.Install()
 						if err != nil {
@@ -48,7 +48,7 @@ var addCmd = &cobra.Command{
 							logger.Info("Successfully installed %s using regular installer", pName)
 						}
 					} else {
-						logger.Info("Successfully installed %s using smart installer", pName)
+						logger.Info("Successfully installed %s using factory installer", pName)
 					}
 				} else {
 					logger.Info("Using regular installation for plugin: %s", pName)
