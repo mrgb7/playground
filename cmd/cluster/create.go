@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -23,23 +24,11 @@ var (
 )
 
 const (
-	// K3s installation commands
-	K3sCreateMasterCmd = `curl -sfL https://get.k3s.io | sh -s - --disable=servicelb --disable=traefik`
-	GetAccessTokenCmd  = `sudo cat /var/lib/rancher/k3s/server/node-token`
-	K3sCreateWorkerCmd = `curl -sfL https://get.k3s.io | K3S_URL=https://%s:6443 K3S_TOKEN=%s  sh -`
-	KubeConfigCmd      = `sudo cat /etc/rancher/k3s/k3s.yaml`
-	
-	// Timeouts and resource specifications
-	K3sInstallTimeoutSeconds = 300 // 5 minutes timeout for K3S installation
-	MasterNodeCPUs          = 2
-	MasterNodeMemory        = "2G"
-	MasterNodeDisk          = "10G"
-	WorkerNodeCPUs          = 1
-	WorkerNodeMemory        = "1G"
-	WorkerNodeDisk          = "5G"
-	
-	// Kubernetes API port
-	K3sAPIPort = 6443
+	K3S_CREATE_MASTER_CMD = `curl -sfL https://get.k3s.io | sh -s - --disable=servicelb --disable=traefik`
+	GET_ACCESS_TOKEN_CMD  = `sudo cat /var/lib/rancher/k3s/server/node-token`
+	K3S_CREATE_WORKER_CMD = `curl -sfL https://get.k3s.io | K3S_URL=https://%s:6443 K3S_TOKEN=%s  sh -`
+	KUBE_CONFIG_CMD       = `sudo cat /etc/rancher/k3s/k3s.yaml`
+	K3S_INSTALL_TIMEOUT   = 300 // 5 minutes timeout for K3S installation
 )
 
 var createCmd = &cobra.Command{
@@ -47,6 +36,17 @@ var createCmd = &cobra.Command{
 	Short: "Create a new cluster",
 	Long:  `Create a new cluster with the specified configurations`,
 	Run: func(cmd *cobra.Command, args []string) {
+		// Validate inputs
+		if err := validateClusterName(cCreateName); err != nil {
+			logger.Errorf("Invalid cluster name: %v", err)
+			return
+		}
+		
+		if err := validateClusterSize(cCreateSize); err != nil {
+			logger.Errorf("Invalid cluster size: %v", err)
+			return
+		}
+		
 		var wg sync.WaitGroup
 		client := multipass.NewMultipassClient()
 		if !client.IsMultipassInstalled() {
