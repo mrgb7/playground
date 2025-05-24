@@ -9,7 +9,10 @@ type InstallOptions struct {
 	ApplicationName string
 	RepoURL         string
 	Path            string
-	TargetRevision  string
+	Version         string
 	Namespace       string
+	ChartName       *string
 	Values          map[string]interface{}
+	KubeConfig      string
+	RepoName        string
 }

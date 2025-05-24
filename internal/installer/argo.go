@@ -12,31 +12,31 @@ import (
 
 	"github.com/mrgb7/playground/internal/k8s"
 	"github.com/mrgb7/playground/pkg/logger"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
 )
 
 type ArgoInstaller struct {
-	KubeConfig        string
-	ClusterName       string
-	ArgoNamespace     string
-	ArgoServerPort    int
-	LocalPort         int
-	ServerAddress     string
-	k8sClient         *k8s.K8sClient
-	httpClient        *http.Client
-	authToken         string
-	stopChannel       chan struct{}
-	readyChannel      chan struct{}
+	KubeConfig     string
+	ClusterName    string
+	ArgoNamespace  string
+	ArgoServerPort int
+	LocalPort      int
+	ServerAddress  string
+	k8sClient      *k8s.K8sClient
+	httpClient     *http.Client
+	authToken      string
+	stopChannel    chan struct{}
+	readyChannel   chan struct{}
 }
 
 type ArgoApplication struct {
-	APIVersion string             `json:"apiVersion"`
-	Kind       string             `json:"kind"`
-	Metadata   ArgoMetadata       `json:"metadata"`
+	APIVersion string              `json:"apiVersion"`
+	Kind       string              `json:"kind"`
+	Metadata   ArgoMetadata        `json:"metadata"`
 	Spec       ArgoApplicationSpec `json:"spec"`
 }
 
@@ -46,16 +46,21 @@ type ArgoMetadata struct {
 }
 
 type ArgoApplicationSpec struct {
-	Project     string              `json:"project"`
-	Source      ArgoSource          `json:"source"`
-	Destination ArgoDestination     `json:"destination"`
-	SyncPolicy  *ArgoSyncPolicy     `json:"syncPolicy,omitempty"`
+	Project     string          `json:"project"`
+	Source      ArgoSource      `json:"source"`
+	Destination ArgoDestination `json:"destination"`
+	SyncPolicy  *ArgoSyncPolicy `json:"syncPolicy,omitempty"`
 }
 
 type ArgoSource struct {
-	RepoURL        string `json:"repoURL"`
-	Path           string `json:"path"`
-	TargetRevision string `json:"targetRevision"`
+	RepoURL        string  `json:"repoURL"`
+	Path           string  `json:"path"`
+	TargetRevision string  `json:"targetRevision"`
+	Chart          *string `json:"chart,omitempty"` // Optional, used for Helm charts
+	Helm           struct {
+		ReleaseName  string `json:"releaseName,omitempty"`
+		ValuesObject map[string]interface{}
+	} `json:"helm,omitempty"` // Optional, used for Helm charts
 }
 
 type ArgoDestination struct {
@@ -116,9 +121,9 @@ func (a *ArgoInstaller) Install(options *InstallOptions) error {
 	if options == nil {
 		return fmt.Errorf("install options cannot be nil")
 	}
-	
+
 	logger.Infoln("Starting ArgoCD application installation...")
-	
+
 	if err := a.connectToArgoCD(); err != nil {
 		return fmt.Errorf("failed to connect to ArgoCD: %w", err)
 	}
@@ -136,9 +141,9 @@ func (a *ArgoInstaller) UnInstall(options *InstallOptions) error {
 	if options == nil {
 		return fmt.Errorf("install options cannot be nil")
 	}
-	
+
 	logger.Infoln("Starting ArgoCD application uninstallation...")
-	
+
 	if err := a.connectToArgoCD(); err != nil {
 		return fmt.Errorf("failed to connect to ArgoCD: %w", err)
 	}
@@ -222,7 +227,7 @@ func (a *ArgoInstaller) createApplication(options *InstallOptions) error {
 	if options == nil {
 		return fmt.Errorf("install options cannot be nil")
 	}
-	
+
 	app := ArgoApplication{
 		APIVersion: "argoproj.io/v1alpha1",
 		Kind:       "Application",
@@ -235,7 +240,7 @@ func (a *ArgoInstaller) createApplication(options *InstallOptions) error {
 			Source: ArgoSource{
 				RepoURL:        options.RepoURL,
 				Path:           options.Path,
-				TargetRevision: options.TargetRevision,
+				TargetRevision: options.Version,
 			},
 			Destination: ArgoDestination{
 				Server:    "https://kubernetes.default.svc",
@@ -249,6 +254,11 @@ func (a *ArgoInstaller) createApplication(options *InstallOptions) error {
 				SyncOptions: []string{"CreateNamespace=true"},
 			},
 		},
+	}
+	if options.ChartName != nil {
+		app.Spec.Source.Chart = options.ChartName
+		app.Spec.Source.Helm.ReleaseName = options.ApplicationName
+		app.Spec.Source.Helm.ValuesObject = options.Values
 	}
 
 	if app.Spec.Source.Path == "" {
@@ -289,7 +299,7 @@ func (a *ArgoInstaller) deleteApplication(options *InstallOptions) error {
 	if options == nil {
 		return fmt.Errorf("install options cannot be nil")
 	}
-	
+
 	url := fmt.Sprintf("http://%s/api/v1/applications/%s", a.ServerAddress, options.ApplicationName)
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
@@ -343,7 +353,7 @@ func (a *ArgoInstaller) setupPortForward() error {
 		return fmt.Errorf("failed to create SPDY transport: %w", err)
 	}
 	ports := []string{fmt.Sprintf("%d:8080", a.LocalPort)}
-	
+
 	a.stopChannel = make(chan struct{}, 1)
 	a.readyChannel = make(chan struct{}, 1)
 	out := &bytes.Buffer{}
@@ -408,7 +418,7 @@ func (a *ArgoInstaller) ValidateArgoConnection() error {
 func (a *ArgoInstaller) cleanup() {
 	a.authToken = ""
 	a.ServerAddress = ""
-		if a.stopChannel != nil {
+	if a.stopChannel != nil {
 		logger.Infoln("Terminating port forward process...")
 		close(a.stopChannel)
 		a.stopChannel = nil

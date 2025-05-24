@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/mrgb7/playground/internal/installer"
 	"github.com/mrgb7/playground/internal/k8s"
 	"github.com/mrgb7/playground/pkg/logger"
 )
@@ -15,12 +14,12 @@ type CertManager struct {
 }
 
 const (
-	CertManagerRepoUrl       = "https://charts.jetstack.io"
-	CertManagerChartName     = "cert-manager"
-	CertManagerChartVersion  = "v1.17.2"
-	CertManagerReleaseName   = "cert-manager"
-	CertManagerNamespace     = "cert-manager"
-	CertManagerRepoName      = "jetstack"
+	CertManagerRepoUrl      = "https://charts.jetstack.io"
+	CertManagerChartName    = "cert-manager"
+	CertManagerChartVersion = "v1.17.2"
+	CertManagerReleaseName  = "cert-manager"
+	CertManagerNamespace    = "cert-manager"
+	CertManagerRepoName     = "jetstack"
 )
 
 func NewCertManager(kubeConfig string) *CertManager {
@@ -36,25 +35,11 @@ func (c *CertManager) GetName() string {
 }
 
 func (c *CertManager) Install(kubeConfig, clusterName string, ensure ...bool) error {
-	return c.BasePlugin.UnifiedInstall(kubeConfig, clusterName, ensure...)
+	return c.UnifiedInstall(kubeConfig, clusterName, ensure...)
 }
 
 func (c *CertManager) Uninstall(kubeConfig, clusterName string, ensure ...bool) error {
-	return c.BasePlugin.UnifiedUninstall(kubeConfig, clusterName, ensure...)
-}
-
-func (c *CertManager) GetInstaller() (installer.Installer, error) {
-	values := c.getDefaultValues()
-	return &installer.HelmInstaller{
-		ReleaseName:  CertManagerReleaseName,
-		ChartName:    CertManagerChartName,
-		RepoUrl:      CertManagerRepoUrl,
-		RepoName:     CertManagerRepoName,
-		Namespace:    CertManagerNamespace,
-		ChartVersion: CertManagerChartVersion,
-		Values:       values,
-		KubeConfig:   c.KubeConfig,
-	}, nil
+	return c.UnifiedUninstall(kubeConfig, clusterName, ensure...)
 }
 
 func (c *CertManager) getDefaultValues() map[string]interface{} {
@@ -79,11 +64,39 @@ func (c *CertManager) Status() string {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	ns, err := client.GetNameSpace(CertManagerNamespace, ctx)
 	if ns == "" || err != nil {
 		logger.Errorln("failed to get cert-manager namespace: %v", err)
 		return "Not installed"
 	}
 	return "cert-manager is running"
+}
+
+func (c *CertManager) GetNamespace() string {
+	return CertManagerNamespace
+}
+
+func (c *CertManager) GetVersion() string {
+	return CertManagerChartVersion
+}
+
+func (c *CertManager) GetChartName() string {
+	return CertManagerChartName
+}
+
+func (c *CertManager) GetRepository() string {
+	return CertManagerRepoUrl
+}
+
+func (c *CertManager) GetChartValues() map[string]interface{} {
+	return c.getDefaultValues()
+}
+
+func (c *CertManager) GetReleaseName() string {
+	return CertManagerReleaseName
+}
+
+func (c *CertManager) GetRepoName() string {
+	return CertManagerRepoName
 }

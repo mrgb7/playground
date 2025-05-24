@@ -34,85 +34,6 @@ func TestIsArgoCDRunning(t *testing.T) {
 	}
 }
 
-func TestNewArgoOptions(t *testing.T) {
-	tests := []struct {
-		name         string
-		pluginName   string
-		expectedApp  string
-		expectedRepo string
-		expectedPath string
-		expectedNS   string
-	}{
-		{
-			name:         "cert-manager plugin",
-			pluginName:   "cert-manager",
-			expectedApp:  "cert-manager-app",
-			expectedRepo: "https://github.com/mrgb7/core-infrastructure",
-			expectedPath: "cert-manager",
-			expectedNS:   "cert-manager",
-		},
-		{
-			name:         "argocd plugin",
-			pluginName:   "argocd",
-			expectedApp:  "argocd-app",
-			expectedRepo: "https://github.com/mrgb7/core-infrastructure",
-			expectedPath: "argocd",
-			expectedNS:   "argocd",
-		},
-		{
-			name:         "loadBalancer plugin",
-			pluginName:   "loadBalancer",
-			expectedApp:  "metallb-app",
-			expectedRepo: "https://github.com/metallb/metallb",
-			expectedPath: "charts/metallb",
-			expectedNS:   "metallb-system",
-		},
-		{
-			name:         "nginx plugin",
-			pluginName:   "nginx",
-			expectedApp:  "nginx-app",
-			expectedRepo: "https://github.com/mrgb7/core-infrastructure",
-			expectedPath: "nginx",
-			expectedNS:   "nginx-system",
-		},
-		{
-			name:         "unknown plugin",
-			pluginName:   "unknown",
-			expectedApp:  "unknown-app",
-			expectedRepo: "https://github.com/mrgb7/core-infrastructure",
-			expectedPath: "unknown",
-			expectedNS:   "unknown-system",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mock := &MockPlugin{name: tt.pluginName}
-			opts := NewArgoOptions(mock)
-
-			if opts.ApplicationName != tt.expectedApp {
-				t.Errorf("ApplicationName = %v, expected %v", opts.ApplicationName, tt.expectedApp)
-			}
-
-			if opts.RepoURL != tt.expectedRepo {
-				t.Errorf("RepoURL = %v, expected %v", opts.RepoURL, tt.expectedRepo)
-			}
-
-			if opts.Path != tt.expectedPath {
-				t.Errorf("Path = %v, expected %v", opts.Path, tt.expectedPath)
-			}
-
-			if opts.Namespace != tt.expectedNS {
-				t.Errorf("Namespace = %v, expected %v", opts.Namespace, tt.expectedNS)
-			}
-
-			if opts.TargetRevision != "main" {
-				t.Errorf("TargetRevision = %v, expected 'main'", opts.TargetRevision)
-			}
-		})
-	}
-}
-
 func TestNewInstaller(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -179,6 +100,30 @@ func (m *MockPlugin) Uninstall(kubeConfig, clusterName string, ensure ...bool) e
 
 func (m *MockPlugin) Status() string {
 	return "mock status"
+}
+
+func (m *MockPlugin) GetNamespace() string {
+	return "test-namespace"
+}
+
+func (m *MockPlugin) GetVersion() string {
+	return "1.0.0"
+}
+
+func (m *MockPlugin) GetChartName() string {
+	return "test-chart"
+}
+
+func (m *MockPlugin) GetRepository() string {
+	return "https://test.repo.com"
+}
+
+func (m *MockPlugin) GetChartValues() map[string]interface{} {
+	return map[string]interface{}{"test": "value"}
+}
+
+func (m *MockPlugin) GetRepoName() string {
+	return "test-repo"
 }
 
 type MockInstaller struct{}

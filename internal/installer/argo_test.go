@@ -121,7 +121,7 @@ func TestInstallOptions_Validation(t *testing.T) {
 				ApplicationName: "test-app",
 				RepoURL:        "https://github.com/test/repo",
 				Path:           "manifests/",
-				TargetRevision: "main",
+				Version:        "main",
 				Namespace:      "test-namespace",
 			},
 			valid: true,
@@ -131,7 +131,7 @@ func TestInstallOptions_Validation(t *testing.T) {
 			options: &InstallOptions{
 				RepoURL:        "https://github.com/test/repo",
 				Path:           "manifests/",
-				TargetRevision: "main",
+				Version:        "main",
 				Namespace:      "test-namespace",
 			},
 			valid: false,
@@ -141,7 +141,7 @@ func TestInstallOptions_Validation(t *testing.T) {
 			options: &InstallOptions{
 				ApplicationName: "test-app",
 				Path:           "manifests/",
-				TargetRevision: "main",
+				Version:        "main",
 				Namespace:      "test-namespace",
 			},
 			valid: false,
@@ -157,7 +157,7 @@ func TestInstallOptions_Validation(t *testing.T) {
 				ApplicationName: "",
 				RepoURL:        "",
 				Path:           "",
-				TargetRevision: "",
+				Version:        "",
 				Namespace:      "",
 			},
 			valid: false,
@@ -313,7 +313,7 @@ func TestInstallOptions_ComplexValidation(t *testing.T) {
 				ApplicationName: "complex-app",
 				RepoURL:        "https://github.com/argoproj/argocd-example-apps",
 				Path:           "guestbook",
-				TargetRevision: "HEAD",
+				Version:        "HEAD",
 				Namespace:      "guestbook",
 				Values: map[string]interface{}{
 					"image.tag":      "latest",
@@ -337,7 +337,7 @@ func TestInstallOptions_ComplexValidation(t *testing.T) {
 				ApplicationName: "app-with-special_chars.123",
 				RepoURL:        "https://github.com/org/repo-name_with.special-chars",
 				Path:           "charts/app-chart",
-				TargetRevision: "v1.2.3-beta.1",
+				Version:        "v1.2.3-beta.1",
 				Namespace:      "namespace-with-dashes",
 			},
 			valid: true,
@@ -366,7 +366,7 @@ func TestArgoApplication_StructCreation(t *testing.T) {
 				ApplicationName: "test-app",
 				RepoURL:        "https://github.com/test/repo",
 				Path:           "manifests",
-				TargetRevision: "main",
+				Version:        "main",
 				Namespace:      "test-namespace",
 			},
 			expectedApp: ArgoApplication{
@@ -413,7 +413,7 @@ func TestArgoApplication_StructCreation(t *testing.T) {
 					Source: ArgoSource{
 						RepoURL:        tt.options.RepoURL,
 						Path:           tt.options.Path,
-						TargetRevision: tt.options.TargetRevision,
+						TargetRevision: tt.options.Version,
 					},
 					Destination: ArgoDestination{
 						Server:    "https://kubernetes.default.svc",

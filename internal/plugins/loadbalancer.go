@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mrgb7/playground/internal/installer"
 	"github.com/mrgb7/playground/internal/k8s"
 	"github.com/mrgb7/playground/pkg/logger"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,23 +44,11 @@ func NewLoadBalancer(kubeConfig string, masterClusterIP string) (*LoadBalancer, 
 }
 
 func (l *LoadBalancer) GetName() string {
-	return "loadBalancer"
-}
-
-func (l *LoadBalancer) GetInstaller() (installer.Installer, error) {
-	return &installer.HelmInstaller{
-		ReleaseName:  releaseName,
-		ChartName:    chartName,
-		RepoUrl:      repoUrl,
-		RepoName:     repoName,
-		Namespace:    namespace,
-		ChartVersion: chartVersion,
-		KubeConfig:   l.KubeConfig,
-	}, nil
+	return "load-balancer"
 }
 
 func (l *LoadBalancer) Install(kubeConfig, clusterName string, ensure ...bool) error {
-	err := l.BasePlugin.UnifiedInstall(kubeConfig, clusterName, ensure...)
+	err := l.UnifiedInstall(kubeConfig, clusterName, ensure...)
 	if err != nil {
 		return fmt.Errorf("failed to install loadbalancer: %w", err)
 	}
@@ -82,7 +69,7 @@ func (l *LoadBalancer) Install(kubeConfig, clusterName string, ensure ...bool) e
 
 func (l *LoadBalancer) Uninstall(kubeConfig, clusterName string, ensure ...bool) error {
 	logger.Infoln("Uninstalling loadbalancer")
-	return l.BasePlugin.UnifiedUninstall(kubeConfig, clusterName, ensure...)
+	return l.UnifiedUninstall(kubeConfig, clusterName, ensure...)
 }
 
 func (l *LoadBalancer) Status() string {
@@ -184,4 +171,28 @@ func (l *LoadBalancer) getIPRange() (string, error) {
 	start := fmt.Sprintf("%s.100", strings.Join(dhcp, "."))
 	end := fmt.Sprintf("%s.200", strings.Join(dhcp, "."))
 	return fmt.Sprintf("%s-%s", start, end), nil
+}
+
+func (l *LoadBalancer) GetNamespace() string {
+	return namespace
+}
+
+func (l *LoadBalancer) GetVersion() string {
+	return chartVersion
+}
+
+func (l *LoadBalancer) GetChartName() string {
+	return chartName
+}
+
+func (l *LoadBalancer) GetRepository() string {
+	return repoUrl
+}
+
+func (l *LoadBalancer) GetChartValues() map[string]interface{} {
+	return make(map[string]interface{})
+}
+
+func (l *LoadBalancer) GetRepoName() string {
+	return repoName
 }
