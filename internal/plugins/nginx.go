@@ -12,11 +12,11 @@ func (n *Nginx) GetInstaller() (installer.Installer, error) {
 	return nil, nil
 }
 
-func (n *Nginx) Install(ensure ...bool) error {
+func (n *Nginx) Install(kubeConfig, clusterName string, ensure ...bool) error {
 	return nil
 }
 
-func (n *Nginx) Uninstall(ensure ...bool) error {
+func (n *Nginx) Uninstall(kubeConfig, clusterName string, ensure ...bool) error {
 	return nil
 }
 

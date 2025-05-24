@@ -60,12 +60,8 @@ func (l *LoadBalancer) GetInstaller() (installer.Installer, error) {
 	}, nil
 }
 
-func (l *LoadBalancer) Install(ensure ...bool) error {
-	i, err := l.GetInstaller()
-	if err != nil {
-		return fmt.Errorf("failed to get installer: %w", err)
-	}
-	err = i.Install(&installer.InstallOptions{})
+func (l *LoadBalancer) Install(kubeConfig, clusterName string, ensure ...bool) error {
+	err := l.BasePlugin.UnifiedInstall(kubeConfig, clusterName, ensure...)
 	if err != nil {
 		return fmt.Errorf("failed to install loadbalancer: %w", err)
 	}
@@ -84,18 +80,9 @@ func (l *LoadBalancer) Install(ensure ...bool) error {
 	return nil
 }
 
-func (l *LoadBalancer) Uninstall(ensure ...bool) error {
-	fmt.Println("Uninstalling loadbalancer")
-	i, err := l.GetInstaller()
-	if err != nil {
-		return fmt.Errorf("failed to get installer: %w", err)
-	}
-	err = i.UnInstall(&installer.InstallOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to uninstall loadbalancer: %w", err)
-	}
-
-	return nil
+func (l *LoadBalancer) Uninstall(kubeConfig, clusterName string, ensure ...bool) error {
+	logger.Infoln("Uninstalling loadbalancer")
+	return l.BasePlugin.UnifiedUninstall(kubeConfig, clusterName, ensure...)
 }
 
 func (l *LoadBalancer) Status() string {
@@ -103,7 +90,7 @@ func (l *LoadBalancer) Status() string {
 	defer cancel()
 	ns, err := l.k8sClient.GetNameSpace(namespace, ctx)
 	if ns == "" || err != nil {
-		logger.Error("failed to get metallb namespace: %v", err)
+		logger.Errorln("failed to get metallb namespace: %v", err)
 		return "Not installed"
 	}
 
@@ -113,7 +100,7 @@ func (l *LoadBalancer) Status() string {
 func (l *LoadBalancer) addl2IpPool() error {
 	ipRange, err := l.getIPRange()
 	if err != nil {
-		logger.Error("failed to get ip range: %v", err)
+		logger.Errorln("failed to get ip range: %v", err)
 		return fmt.Errorf("failed to get ip range: %w", err)
 	}
 	ipPool := &unstructured.Unstructured{
@@ -143,7 +130,7 @@ func (l *LoadBalancer) addl2IpPool() error {
 		Namespace(namespace).
 		Create(context.TODO(), ipPool, metav1.CreateOptions{})
 	if err != nil {
-		logger.Error("failed to create ip address pool: %v", err)
+		logger.Errorln("failed to create ip address pool: %v", err)
 		return fmt.Errorf("failed to create ip address pool: %w", err)
 	}
 	return nil
@@ -179,7 +166,7 @@ func (l *LoadBalancer) addl2Adv() error {
 		Namespace(namespace).
 		Create(context.TODO(), l2Adv, metav1.CreateOptions{})
 	if err != nil {
-		logger.Error("failed to create l2 advertisement: %v", err)
+		logger.Errorln("failed to create l2 advertisement: %v", err)
 		return fmt.Errorf("failed to create l2 advertisement: %w", err)
 	}
 	return nil
@@ -197,12 +184,4 @@ func (l *LoadBalancer) getIPRange() (string, error) {
 	start := fmt.Sprintf("%s.100", strings.Join(dhcp, "."))
 	end := fmt.Sprintf("%s.200", strings.Join(dhcp, "."))
 	return fmt.Sprintf("%s-%s", start, end), nil
-}
-
-func (l *LoadBalancer) FactoryInstall(kubeConfig, clusterName string, ensure ...bool) error {
-	return l.BasePlugin.FactoryInstall(kubeConfig, clusterName, ensure...)
-}
-
-func (l *LoadBalancer) FactoryUninstall(kubeConfig, clusterName string, ensure ...bool) error {
-	return l.BasePlugin.FactoryUninstall(kubeConfig, clusterName, ensure...)
 }

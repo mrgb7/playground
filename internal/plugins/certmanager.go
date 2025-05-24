@@ -2,7 +2,6 @@ package plugins
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/mrgb7/playground/internal/installer"
@@ -36,28 +35,12 @@ func (c *CertManager) GetName() string {
 	return "cert-manager"
 }
 
-func (c *CertManager) Install(ensure ...bool) error {
-	i, err := c.GetInstaller()
-	if err != nil {
-		return fmt.Errorf("failed to get installer: %w", err)
-	}
-	err = i.Install(&installer.InstallOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to install cert-manager: %w", err)
-	}
-	return nil
+func (c *CertManager) Install(kubeConfig, clusterName string, ensure ...bool) error {
+	return c.BasePlugin.UnifiedInstall(kubeConfig, clusterName, ensure...)
 }
 
-func (c *CertManager) Uninstall(ensure ...bool) error {
-	i, err := c.GetInstaller()
-	if err != nil {
-		return fmt.Errorf("failed to get installer: %w", err)
-	}
-	err = i.UnInstall(&installer.InstallOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to uninstall cert-manager: %w", err)
-	}
-	return nil
+func (c *CertManager) Uninstall(kubeConfig, clusterName string, ensure ...bool) error {
+	return c.BasePlugin.UnifiedUninstall(kubeConfig, clusterName, ensure...)
 }
 
 func (c *CertManager) GetInstaller() (installer.Installer, error) {
@@ -91,7 +74,7 @@ func (c *CertManager) getDefaultValues() map[string]interface{} {
 func (c *CertManager) Status() string {
 	client, err := k8s.NewK8sClient(c.KubeConfig)
 	if err != nil {
-		logger.Error("failed to create k8s client: %v", err)
+		logger.Errorln("failed to create k8s client: %v", err)
 		return "UNKNOWN"
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -99,16 +82,8 @@ func (c *CertManager) Status() string {
 	
 	ns, err := client.GetNameSpace(CertManagerNamespace, ctx)
 	if ns == "" || err != nil {
-		logger.Error("failed to get cert-manager namespace: %v", err)
+		logger.Errorln("failed to get cert-manager namespace: %v", err)
 		return "Not installed"
 	}
 	return "cert-manager is running"
-}
-
-func (c *CertManager) FactoryInstall(kubeConfig, clusterName string, ensure ...bool) error {
-	return c.BasePlugin.FactoryInstall(kubeConfig, clusterName, ensure...)
-}
-
-func (c *CertManager) FactoryUninstall(kubeConfig, clusterName string, ensure ...bool) error {
-	return c.BasePlugin.FactoryUninstall(kubeConfig, clusterName, ensure...)
 }

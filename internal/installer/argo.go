@@ -117,7 +117,7 @@ func (a *ArgoInstaller) Install(options *InstallOptions) error {
 		return fmt.Errorf("install options cannot be nil")
 	}
 	
-	logger.Info("Starting ArgoCD application installation...\n")
+	logger.Infoln("Starting ArgoCD application installation...")
 	
 	if err := a.connectToArgoCD(); err != nil {
 		return fmt.Errorf("failed to connect to ArgoCD: %w", err)
@@ -128,7 +128,7 @@ func (a *ArgoInstaller) Install(options *InstallOptions) error {
 		return fmt.Errorf("failed to create ArgoCD application: %w", err)
 	}
 
-	logger.Info("Successfully created ArgoCD application: %s", options.ApplicationName)
+	logger.Infoln("Successfully created ArgoCD application: %s", options.ApplicationName)
 	return nil
 }
 
@@ -137,7 +137,7 @@ func (a *ArgoInstaller) UnInstall(options *InstallOptions) error {
 		return fmt.Errorf("install options cannot be nil")
 	}
 	
-	logger.Info("Starting ArgoCD application uninstallation...\n")
+	logger.Infoln("Starting ArgoCD application uninstallation...")
 	
 	if err := a.connectToArgoCD(); err != nil {
 		return fmt.Errorf("failed to connect to ArgoCD: %w", err)
@@ -148,7 +148,7 @@ func (a *ArgoInstaller) UnInstall(options *InstallOptions) error {
 		return fmt.Errorf("failed to delete ArgoCD application: %w", err)
 	}
 
-	logger.Info("Successfully deleted ArgoCD application: %s", options.ApplicationName)
+	logger.Infoln("Successfully deleted ArgoCD application: %s", options.ApplicationName)
 	return nil
 }
 
@@ -163,7 +163,7 @@ func (a *ArgoInstaller) connectToArgoCD() error {
 	}
 
 	// Wait a bit longer for the port forward to be fully established
-	logger.Info("Waiting for port forward to stabilize...")
+	logger.Infoln("Waiting for port forward to stabilize...")
 	time.Sleep(5 * time.Second)
 
 	// Retry authentication with backoff
@@ -173,7 +173,7 @@ func (a *ArgoInstaller) connectToArgoCD() error {
 		if authErr == nil {
 			return nil
 		}
-		logger.Warn("Authentication attempt %d failed: %v, retrying...", i+1, authErr)
+		logger.Warnln("Authentication attempt %d failed: %v, retrying...", i+1, authErr)
 		time.Sleep(time.Duration(i+1) * 2 * time.Second)
 	}
 
@@ -332,7 +332,7 @@ func (a *ArgoInstaller) setupPortForward() error {
 		return fmt.Errorf("ArgoCD server pod is not running: %s", pod.Status.Phase)
 	}
 
-	logger.Info("Setting up port forward to ArgoCD server pod: %s", pod.Name)
+	logger.Infoln("Setting up port forward to ArgoCD server pod: %s", pod.Name)
 	req := a.k8sClient.Clientset.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Namespace(a.ArgoNamespace).
@@ -364,14 +364,14 @@ func (a *ArgoInstaller) setupPortForward() error {
 	errChan := make(chan error, 1)
 	go func() {
 		if err := forwarder.ForwardPorts(); err != nil {
-			logger.Error("Port forwarding failed: %v", err)
+			logger.Errorln("Port forwarding failed: %v", err)
 			errChan <- err
 		}
 	}()
 
 	select {
 	case <-a.readyChannel:
-		logger.Info("Port forward established successfully")
+		logger.Infoln("Port forward established successfully")
 	case err := <-errChan:
 		close(a.stopChannel)
 		return fmt.Errorf("port forwarding failed: %w", err)
@@ -409,7 +409,7 @@ func (a *ArgoInstaller) cleanup() {
 	a.authToken = ""
 	a.ServerAddress = ""
 		if a.stopChannel != nil {
-		logger.Info("Terminating port forward process...")
+		logger.Infoln("Terminating port forward process...")
 		close(a.stopChannel)
 		a.stopChannel = nil
 	}

@@ -18,10 +18,10 @@ func NewBasePlugin(kubeConfig string, plugin Plugin) *BasePlugin {
 	}
 }
 
-func (b *BasePlugin) FactoryInstall(kubeConfig, clusterName string, ensure ...bool) error {
+func (b *BasePlugin) UnifiedInstall(kubeConfig, clusterName string, ensure ...bool) error {
 	inst, err := NewInstaller(b.plugin, kubeConfig, clusterName)
 	if err != nil {
-		return fmt.Errorf("failed to create installer from factory: %w", err)
+		return fmt.Errorf("failed to create installer: %w", err)
 	}
 
 	_, isArgo := inst.(*installer.ArgoInstaller)
@@ -34,10 +34,10 @@ func (b *BasePlugin) FactoryInstall(kubeConfig, clusterName string, ensure ...bo
 	}
 }
 
-func (b *BasePlugin) FactoryUninstall(kubeConfig, clusterName string, ensure ...bool) error {
+func (b *BasePlugin) UnifiedUninstall(kubeConfig, clusterName string, ensure ...bool) error {
 	inst, err := NewInstaller(b.plugin, kubeConfig, clusterName)
 	if err != nil {
-		return fmt.Errorf("failed to create installer from factory: %w", err)
+		return fmt.Errorf("failed to create installer: %w", err)
 	}
 
 	_, isArgo := inst.(*installer.ArgoInstaller)

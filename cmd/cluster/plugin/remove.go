@@ -21,7 +21,7 @@ var removeCmd = &cobra.Command{
 
 		pluginsList, err := plugins.CreatePluginsList(c.KubeConfig, ip)
 		if err != nil {
-			logger.Error("Failed to create plugins list: %v", err)
+			logger.Errorln("Failed to create plugins list: %v", err)
 			return
 		}
 
@@ -30,30 +30,21 @@ var removeCmd = &cobra.Command{
 			if plugin.GetName() == pName {
 				found = true
 				
-				if factory, ok := plugin.(plugins.Factory); ok {
-					err := factory.FactoryUninstall(c.KubeConfig, c.Name)
-					if err != nil {
-						logger.Error("Error uninstalling plugin: %v", err)
-					} else {
-						logger.Info("Successfully uninstalled %s", pName)
-					}
+				err := plugin.Uninstall(c.KubeConfig, c.Name)
+				if err != nil {
+					logger.Errorln("Error uninstalling plugin: %v", err)
 				} else {
-					err := plugin.Uninstall()
-					if err != nil {
-						logger.Error("Error uninstalling plugin: %v", err)
-					} else {
-						logger.Info("Successfully uninstalled %s", pName)
-					}
+					logger.Successln("Successfully uninstalled %s", pName)
 				}
 				break
 			}
 		}
 		
 		if !found {
-			logger.Error("Plugin %s not found", pName)
-			logger.Info("Available plugins:")
+			logger.Errorln("Plugin %s not found", pName)
+			logger.Infoln("Available plugins:")
 			for _, plugin := range pluginsList {
-				logger.Info("  - %s", plugin.GetName())
+				logger.Infoln("  - %s", plugin.GetName())
 			}
 		}
 	},

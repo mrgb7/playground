@@ -45,28 +45,12 @@ func (a *Argocd) GetName() string {
 	return "argocd"
 }
 
-func (a *Argocd) Install(ensure ...bool) error {
-	i, err := a.GetInstaller()
-	if err != nil {
-		return fmt.Errorf("failed to get installer: %w", err)
-	}
-	err = i.Install(&installer.InstallOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to install argocd: %w", err)
-	}
-	return nil
+func (a *Argocd) Install(kubeConfig, clusterName string, ensure ...bool) error {
+	return a.BasePlugin.UnifiedInstall(kubeConfig, clusterName, ensure...)
 }
 
-func (a *Argocd) Uninstall(ensure ...bool) error {
-	i, err := a.GetInstaller()
-	if err != nil {
-		return fmt.Errorf("failed to get installer: %w", err)
-	}
-	err = i.UnInstall(&installer.InstallOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to uninstall argocd: %w", err)
-	}
-	return nil
+func (a *Argocd) Uninstall(kubeConfig, clusterName string, ensure ...bool) error {
+	return a.BasePlugin.UnifiedUninstall(kubeConfig, clusterName, ensure...)
 }
 
 func (a *Argocd) GetInstaller() (installer.Installer, error) {
@@ -133,23 +117,15 @@ func (a *Argocd) getValuesContent() (map[string]interface{}, error) {
 func (a *Argocd) Status() string {
 	c, err := k8s.NewK8sClient(a.KubeConfig)
 	if err != nil {
-		logger.Error("failed to create k8s client: %v", err)
+		logger.Errorln("failed to create k8s client: %v", err)
 		return "UNKOWN"
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	ns, err := c.GetNameSpace(ArgocdNamespace, ctx)
 	if ns == "" || err != nil {
-		logger.Error("failed to get argocd namespace: %v", err)
+		logger.Errorln("failed to get argocd namespace: %v", err)
 		return "Not installed"
 	}
 	return "argocd is running"
-}
-
-func (a *Argocd) FactoryInstall(kubeConfig, clusterName string, ensure ...bool) error {
-	return a.BasePlugin.FactoryInstall(kubeConfig, clusterName, ensure...)
-}
-
-func (a *Argocd) FactoryUninstall(kubeConfig, clusterName string, ensure ...bool) error {
-	return a.BasePlugin.FactoryUninstall(kubeConfig, clusterName, ensure...)
 }

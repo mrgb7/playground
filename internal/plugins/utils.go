@@ -18,7 +18,7 @@ const (
 func IsArgoCDRunning(kubeConfig string) bool {
 	client, err := k8s.NewK8sClient(kubeConfig)
 	if err != nil {
-		logger.Debug("Failed to create k8s client: %v", err)
+		logger.Debugln("Failed to create k8s client: %v", err)
 		return false
 	}
 
@@ -27,7 +27,7 @@ func IsArgoCDRunning(kubeConfig string) bool {
 
 	namespace, err := client.GetNameSpace(ArgocdInstallNamespace, ctx)
 	if err != nil || namespace == "" {
-		logger.Debug("ArgoCD namespace not found: %v", err)
+		logger.Debugln("ArgoCD namespace not found: %v", err)
 		return false
 	}
 
@@ -35,12 +35,12 @@ func IsArgoCDRunning(kubeConfig string) bool {
 		LabelSelector: ArgocdServerLabelSelector,
 	})
 	if err != nil {
-		logger.Debug("Failed to list ArgoCD server pods: %v", err)
+		logger.Debugln("Failed to list ArgoCD server pods: %v", err)
 		return false
 	}
 
 	if len(podList.Items) == 0 {
-		logger.Debug("No ArgoCD server pods found")
+		logger.Debugln("No ArgoCD server pods found")
 		return false
 	}
 
@@ -61,7 +61,7 @@ func IsArgoCDRunning(kubeConfig string) bool {
 		}
 	}
 
-	logger.Debug("ArgoCD pods are not ready")
+	logger.Debugln("ArgoCD pods are not ready")
 	return false
 }
 
@@ -69,7 +69,7 @@ func NewInstaller(plugin Plugin, kubeConfig, clusterName string) (installer.Inst
 	if IsArgoCDRunning(kubeConfig) {
 		argoInstaller, err := installer.NewArgoInstaller(kubeConfig, clusterName)
 		if err != nil {
-			logger.Warn("Failed to create ArgoCD installer, falling back to Helm: %v", err)
+			logger.Warnln("Failed to create ArgoCD installer, falling back to Helm: %v", err)
 			return plugin.GetInstaller()
 		}
 		

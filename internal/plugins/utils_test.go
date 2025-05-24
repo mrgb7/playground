@@ -63,8 +63,8 @@ func TestNewArgoOptions(t *testing.T) {
 			name:         "loadBalancer plugin",
 			pluginName:   "loadBalancer",
 			expectedApp:  "metallb-app",
-			expectedRepo: "https://github.com/mrgb7/core-infrastructure",
-			expectedPath: "metallb",
+			expectedRepo: "https://github.com/metallb/metallb",
+			expectedPath: "charts/metallb",
 			expectedNS:   "metallb-system",
 		},
 		{
@@ -169,11 +169,11 @@ func (m *MockPlugin) GetInstaller() (installer.Installer, error) {
 	return &MockInstaller{}, nil
 }
 
-func (m *MockPlugin) Install(ensure ...bool) error {
+func (m *MockPlugin) Install(kubeConfig, clusterName string, ensure ...bool) error {
 	return nil
 }
 
-func (m *MockPlugin) Uninstall(ensure ...bool) error {
+func (m *MockPlugin) Uninstall(kubeConfig, clusterName string, ensure ...bool) error {
 	return nil
 }
 
