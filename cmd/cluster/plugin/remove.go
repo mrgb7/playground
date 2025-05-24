@@ -29,7 +29,7 @@ var removeCmd = &cobra.Command{
 		for _, plugin := range pluginsList {
 			if plugin.GetName() == pName {
 				found = true
-				
+
 				err := plugin.Uninstall(c.KubeConfig, c.Name)
 				if err != nil {
 					logger.Errorln("Error uninstalling plugin: %v", err)
@@ -39,7 +39,7 @@ var removeCmd = &cobra.Command{
 				break
 			}
 		}
-		
+
 		if !found {
 			logger.Errorln("Plugin %s not found", pName)
 			logger.Infoln("Available plugins:")

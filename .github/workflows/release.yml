@@ -1,0 +1,245 @@
+name: Release
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type (major, minor, patch) or specific version (e.g., v1.2.3)'
+        required: false
+        default: 'auto'
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: Test Before Release
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+        cache: true
+
+    - name: Run tests
+      run: go test -v -race ./...
+
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: test
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+        cache: true
+
+    - name: Generate semantic version
+      id: version
+      run: |
+        # Get the latest tag
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+        echo "Latest tag: $LATEST_TAG"
+        
+        # Extract version numbers
+        VERSION_NUMS=$(echo $LATEST_TAG | sed 's/v//')
+        MAJOR=$(echo $VERSION_NUMS | cut -d. -f1)
+        MINOR=$(echo $VERSION_NUMS | cut -d. -f2)
+        PATCH=$(echo $VERSION_NUMS | cut -d. -f3)
+        
+        # Handle manual version input
+        if [ "${{ github.event.inputs.version_type }}" != "" ] && [ "${{ github.event.inputs.version_type }}" != "auto" ]; then
+          VERSION_INPUT="${{ github.event.inputs.version_type }}"
+          if [[ $VERSION_INPUT =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            # Specific version provided
+            NEW_VERSION="${VERSION_INPUT#v}"
+            NEW_VERSION="v${NEW_VERSION}"
+          elif [ "$VERSION_INPUT" = "major" ]; then
+            NEW_MAJOR=$((MAJOR + 1))
+            NEW_VERSION="v${NEW_MAJOR}.0.0"
+          elif [ "$VERSION_INPUT" = "minor" ]; then
+            NEW_MINOR=$((MINOR + 1))
+            NEW_VERSION="v${MAJOR}.${NEW_MINOR}.0"
+          elif [ "$VERSION_INPUT" = "patch" ]; then
+            NEW_PATCH=$((PATCH + 1))
+            NEW_VERSION="v${MAJOR}.${MINOR}.${NEW_PATCH}"
+          else
+            echo "Invalid version input: $VERSION_INPUT"
+            exit 1
+          fi
+        else
+          # Analyze commits since last tag for conventional commits
+          COMMITS=$(git log ${LATEST_TAG}..HEAD --oneline --pretty=format:"%s" || git log --oneline --pretty=format:"%s")
+          
+          HAS_BREAKING=false
+          HAS_FEAT=false
+          HAS_FIX=false
+          
+          while IFS= read -r commit; do
+            echo "Analyzing commit: $commit"
+            
+            # Check for breaking changes
+            if echo "$commit" | grep -qE "^[a-zA-Z]+(\(.+\))?!:"; then
+              HAS_BREAKING=true
+            elif echo "$commit" | grep -qiE "(BREAKING CHANGE|BREAKING-CHANGE)"; then
+              HAS_BREAKING=true
+            # Check for features
+            elif echo "$commit" | grep -qE "^feat(\(.+\))?:"; then
+              HAS_FEAT=true
+            # Check for fixes
+            elif echo "$commit" | grep -qE "^fix(\(.+\))?:"; then
+              HAS_FIX=true
+            fi
+          done <<< "$COMMITS"
+          
+          # Determine version bump based on conventional commits
+          if [ "$HAS_BREAKING" = true ]; then
+            NEW_MAJOR=$((MAJOR + 1))
+            NEW_VERSION="v${NEW_MAJOR}.0.0"
+            echo "BREAKING CHANGE detected, bumping major version"
+          elif [ "$HAS_FEAT" = true ]; then
+            NEW_MINOR=$((MINOR + 1))
+            NEW_VERSION="v${MAJOR}.${NEW_MINOR}.0"
+            echo "Feature detected, bumping minor version"
+          elif [ "$HAS_FIX" = true ]; then
+            NEW_PATCH=$((PATCH + 1))
+            NEW_VERSION="v${MAJOR}.${MINOR}.${NEW_PATCH}"
+            echo "Fix detected, bumping patch version"
+          else
+            # Default to patch bump if no conventional commits found
+            NEW_PATCH=$((PATCH + 1))
+            NEW_VERSION="v${MAJOR}.${MINOR}.${NEW_PATCH}"
+            echo "No conventional commits found, defaulting to patch bump"
+          fi
+        fi
+        
+        echo "New version: $NEW_VERSION"
+        echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+    - name: Check if version already exists
+      run: |
+        if git tag --list | grep -q "^${{ steps.version.outputs.version }}$"; then
+          echo "Version ${{ steps.version.outputs.version }} already exists!"
+          exit 1
+        fi
+
+    - name: Create Git tag
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git tag ${{ steps.version.outputs.version }}
+        git push origin ${{ steps.version.outputs.version }}
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        LATEST_TAG=$(git describe --tags --abbrev=0 ${{ steps.version.outputs.version }}^ 2>/dev/null || echo "")
+        
+        if [ -z "$LATEST_TAG" ]; then
+          COMMITS=$(git log --oneline --pretty=format:"- %s" | head -20)
+        else
+          COMMITS=$(git log ${LATEST_TAG}..${{ steps.version.outputs.version }} --oneline --pretty=format:"- %s")
+        fi
+        
+        # Create changelog sections
+        BREAKING_CHANGES=""
+        FEATURES=""
+        FIXES=""
+        OTHER=""
+        
+        while IFS= read -r commit; do
+          if echo "$commit" | grep -qE "^- [a-zA-Z]+(\(.+\))?!:"; then
+            BREAKING_CHANGES="${BREAKING_CHANGES}${commit}\n"
+          elif echo "$commit" | grep -qE "^- feat(\(.+\))?:"; then
+            FEATURES="${FEATURES}${commit}\n"
+          elif echo "$commit" | grep -qE "^- fix(\(.+\))?:"; then
+            FIXES="${FIXES}${commit}\n"
+          else
+            OTHER="${OTHER}${commit}\n"
+          fi
+        done <<< "$COMMITS"
+        
+        # Build changelog
+        CHANGELOG="## Changes\n\n"
+        
+        if [ -n "$BREAKING_CHANGES" ]; then
+          CHANGELOG="${CHANGELOG}### 💥 BREAKING CHANGES\n${BREAKING_CHANGES}\n"
+        fi
+        
+        if [ -n "$FEATURES" ]; then
+          CHANGELOG="${CHANGELOG}### 🚀 Features\n${FEATURES}\n"
+        fi
+        
+        if [ -n "$FIXES" ]; then
+          CHANGELOG="${CHANGELOG}### 🐛 Bug Fixes\n${FIXES}\n"
+        fi
+        
+        if [ -n "$OTHER" ]; then
+          CHANGELOG="${CHANGELOG}### 📦 Other Changes\n${OTHER}\n"
+        fi
+        
+        # Save changelog to file for multiline output
+        echo -e "$CHANGELOG" > changelog.md
+        echo "Generated changelog"
+
+    - name: Build release binaries
+      run: |
+        VERSION=${{ steps.version.outputs.version }} make package-release
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        release_name: Release ${{ steps.version.outputs.version }}
+        body_path: ./changelog.md
+        draft: false
+        prerelease: false
+
+    - name: Upload Linux AMD64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./release/playground-${{ steps.version.outputs.version }}-linux-amd64.tar.gz
+        asset_name: playground-${{ steps.version.outputs.version }}-linux-amd64.tar.gz
+        asset_content_type: application/gzip
+
+    - name: Upload macOS Intel
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./release/playground-${{ steps.version.outputs.version }}-darwin-amd64.tar.gz
+        asset_name: playground-${{ steps.version.outputs.version }}-darwin-amd64.tar.gz
+        asset_content_type: application/gzip
+
+    - name: Upload macOS Apple Silicon
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./release/playground-${{ steps.version.outputs.version }}-darwin-arm64.tar.gz
+        asset_name: playground-${{ steps.version.outputs.version }}-darwin-arm64.tar.gz
+        asset_content_type: application/gzip 

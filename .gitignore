@@ -41,6 +41,7 @@ Thumbs.db
 # Project specific build artifacts
 /dist/
 /bin/
+/release/
 
 # Environment variables
 .env
