@@ -102,8 +102,8 @@ func NewArgoOptions(plugin Plugin) *installer.InstallOptions {
 	case "loadBalancer":
 		return &installer.InstallOptions{
 			ApplicationName: "metallb-app",
-			RepoURL:        "https://github.com/mrgb7/core-infrastructure",
-			Path:           "metallb",
+			RepoURL:        "https://github.com/metallb/metallb",
+			Path:           "charts/metallb",
 			TargetRevision: "main",
 			Namespace:      "metallb-system",
 		}

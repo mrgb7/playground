@@ -162,9 +162,22 @@ func (a *ArgoInstaller) connectToArgoCD() error {
 		return fmt.Errorf("failed to setup port forward: %w", err)
 	}
 
-	time.Sleep(2 * time.Second)
+	// Wait a bit longer for the port forward to be fully established
+	logger.Info("Waiting for port forward to stabilize...")
+	time.Sleep(5 * time.Second)
 
-	return a.authenticate(password)
+	// Retry authentication with backoff
+	var authErr error
+	for i := 0; i < 3; i++ {
+		authErr = a.authenticate(password)
+		if authErr == nil {
+			return nil
+		}
+		logger.Warn("Authentication attempt %d failed: %v, retrying...", i+1, authErr)
+		time.Sleep(time.Duration(i+1) * 2 * time.Second)
+	}
+
+	return fmt.Errorf("failed to authenticate after 3 attempts: %w", authErr)
 }
 
 func (a *ArgoInstaller) authenticate(password string) error {
@@ -178,7 +191,7 @@ func (a *ArgoInstaller) authenticate(password string) error {
 		return fmt.Errorf("failed to marshal session request: %w", err)
 	}
 
-	url := fmt.Sprintf("https://%s/api/v1/session", a.ServerAddress)
+	url := fmt.Sprintf("http://%s/api/v1/session", a.ServerAddress)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(reqBody))
 	if err != nil {
 		return fmt.Errorf("failed to create session request: %w", err)
@@ -250,7 +263,7 @@ func (a *ArgoInstaller) createApplication(options *InstallOptions) error {
 		return fmt.Errorf("failed to marshal application: %w", err)
 	}
 
-	url := fmt.Sprintf("https://%s/api/v1/applications", a.ServerAddress)
+	url := fmt.Sprintf("http://%s/api/v1/applications", a.ServerAddress)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(reqBody))
 	if err != nil {
 		return fmt.Errorf("failed to create application request: %w", err)
@@ -277,7 +290,7 @@ func (a *ArgoInstaller) deleteApplication(options *InstallOptions) error {
 		return fmt.Errorf("install options cannot be nil")
 	}
 	
-	url := fmt.Sprintf("https://%s/api/v1/applications/%s", a.ServerAddress, options.ApplicationName)
+	url := fmt.Sprintf("http://%s/api/v1/applications/%s", a.ServerAddress, options.ApplicationName)
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create delete request: %w", err)
@@ -320,34 +333,22 @@ func (a *ArgoInstaller) setupPortForward() error {
 	}
 
 	logger.Info("Setting up port forward to ArgoCD server pod: %s", pod.Name)
-
-	// Create the port forward request URL
 	req := a.k8sClient.Clientset.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Namespace(a.ArgoNamespace).
 		Name(pod.Name).
 		SubResource("portforward")
-
-	// Create SPDY transport
 	transport, upgrader, err := spdy.RoundTripperFor(a.k8sClient.Config)
 	if err != nil {
 		return fmt.Errorf("failed to create SPDY transport: %w", err)
 	}
-
-	// Set up port forward
 	ports := []string{fmt.Sprintf("%d:8080", a.LocalPort)}
 	
 	a.stopChannel = make(chan struct{}, 1)
 	a.readyChannel = make(chan struct{}, 1)
-	
-	// Create a buffer for output
 	out := &bytes.Buffer{}
 	errOut := &bytes.Buffer{}
-
-	// Create SPDY dialer
 	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", req.URL())
-
-	// Create port forwarder
 	forwarder, err := portforward.New(
 		dialer,
 		ports,
@@ -360,18 +361,21 @@ func (a *ArgoInstaller) setupPortForward() error {
 		return fmt.Errorf("failed to create port forwarder: %w", err)
 	}
 
-	// Start port forwarding in a goroutine
+	errChan := make(chan error, 1)
 	go func() {
 		if err := forwarder.ForwardPorts(); err != nil {
 			logger.Error("Port forwarding failed: %v", err)
+			errChan <- err
 		}
 	}()
 
-	// Wait for port forward to be ready
 	select {
 	case <-a.readyChannel:
 		logger.Info("Port forward established successfully")
-	case <-time.After(10 * time.Second):
+	case err := <-errChan:
+		close(a.stopChannel)
+		return fmt.Errorf("port forwarding failed: %w", err)
+	case <-time.After(15 * time.Second):
 		close(a.stopChannel)
 		return fmt.Errorf("timeout waiting for port forward to be ready")
 	}
@@ -404,9 +408,7 @@ func (a *ArgoInstaller) ValidateArgoConnection() error {
 func (a *ArgoInstaller) cleanup() {
 	a.authToken = ""
 	a.ServerAddress = ""
-	
-	// Terminate port forward if running
-	if a.stopChannel != nil {
+		if a.stopChannel != nil {
 		logger.Info("Terminating port forward process...")
 		close(a.stopChannel)
 		a.stopChannel = nil
