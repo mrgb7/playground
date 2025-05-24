@@ -1,17 +1,17 @@
 package installer
 
 import (
+	"bytes"
 	"context"
+	"crypto/tls"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
-	"net/url"
-	"strings"
 	"time"
 
 	"github.com/mrgb7/playground/internal/k8s"
 	"github.com/mrgb7/playground/pkg/logger"
-	"k8s.io/client-go/tools/portforward"
-	"k8s.io/client-go/transport/spdy"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1 "k8s.io/api/core/v1"
@@ -25,7 +25,57 @@ type ArgoInstaller struct {
 	LocalPort         int
 	ServerAddress     string
 	k8sClient         *k8s.K8sClient
-	portForwardCancel context.CancelFunc
+	httpClient        *http.Client
+	authToken         string
+}
+
+type ArgoApplication struct {
+	APIVersion string             `json:"apiVersion"`
+	Kind       string             `json:"kind"`
+	Metadata   ArgoMetadata       `json:"metadata"`
+	Spec       ArgoApplicationSpec `json:"spec"`
+}
+
+type ArgoMetadata struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+}
+
+type ArgoApplicationSpec struct {
+	Project     string              `json:"project"`
+	Source      ArgoSource          `json:"source"`
+	Destination ArgoDestination     `json:"destination"`
+	SyncPolicy  *ArgoSyncPolicy     `json:"syncPolicy,omitempty"`
+}
+
+type ArgoSource struct {
+	RepoURL        string `json:"repoURL"`
+	Path           string `json:"path"`
+	TargetRevision string `json:"targetRevision"`
+}
+
+type ArgoDestination struct {
+	Server    string `json:"server"`
+	Namespace string `json:"namespace"`
+}
+
+type ArgoSyncPolicy struct {
+	Automated   *ArgoSyncPolicyAutomated `json:"automated,omitempty"`
+	SyncOptions []string                 `json:"syncOptions,omitempty"`
+}
+
+type ArgoSyncPolicyAutomated struct {
+	Prune    bool `json:"prune,omitempty"`
+	SelfHeal bool `json:"selfHeal,omitempty"`
+}
+
+type ArgoSessionRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type ArgoSessionResponse struct {
+	Token string `json:"token"`
 }
 
 const (
@@ -40,6 +90,13 @@ func NewArgoInstaller(kubeConfig, clusterName string) (*ArgoInstaller, error) {
 		return nil, fmt.Errorf("failed to create k8s client: %w", err)
 	}
 
+	httpClient := &http.Client{
+		Timeout: 30 * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+
 	return &ArgoInstaller{
 		KubeConfig:     kubeConfig,
 		ClusterName:    clusterName,
@@ -47,6 +104,7 @@ func NewArgoInstaller(kubeConfig, clusterName string) (*ArgoInstaller, error) {
 		ArgoServerPort: DefaultArgoServerPort,
 		LocalPort:      DefaultLocalPort,
 		k8sClient:      k8sClient,
+		httpClient:     httpClient,
 	}, nil
 }
 
@@ -57,48 +115,15 @@ func (a *ArgoInstaller) Install(options *InstallOptions) error {
 	
 	logger.Info("Starting ArgoCD application installation...")
 	
-	if err := a.setupPortForward(); err != nil {
-		return fmt.Errorf("failed to setup port forward: %w", err)
-	}
-	defer a.closePortForward()
-
-	time.Sleep(2 * time.Second)
-
-	logger.Info("Port forward established, creating ArgoCD application...")
-
-	applicationSpec := map[string]interface{}{
-		"metadata": map[string]interface{}{
-			"name":      options.ApplicationName,
-			"namespace": a.ArgoNamespace,
-		},
-		"spec": map[string]interface{}{
-			"project": "default",
-			"source": map[string]interface{}{
-				"repoURL":        options.RepoURL,
-				"path":           options.Path,
-				"targetRevision": options.TargetRevision,
-			},
-			"destination": map[string]interface{}{
-				"server":    "https://kubernetes.default.svc",
-				"namespace": options.Namespace,
-			},
-			"syncPolicy": map[string]interface{}{
-				"automated": map[string]interface{}{
-					"prune":    true,
-					"selfHeal": true,
-				},
-				"syncOptions": []string{"CreateNamespace=true"},
-			},
-		},
+	if err := a.connectToArgoCD(); err != nil {
+		return fmt.Errorf("failed to connect to ArgoCD: %w", err)
 	}
 
-	logger.Info("Application spec created for: %s", options.ApplicationName)
-	logger.Debug("Spec: %+v", applicationSpec)
+	if err := a.createApplication(options); err != nil {
+		return fmt.Errorf("failed to create ArgoCD application: %w", err)
+	}
 
 	logger.Info("Successfully created ArgoCD application: %s", options.ApplicationName)
-	logger.Info("Application will be synced from: %s/%s", options.RepoURL, options.Path)
-	logger.Info("Target namespace: %s", options.Namespace)
-
 	return nil
 }
 
@@ -109,101 +134,187 @@ func (a *ArgoInstaller) UnInstall(options *InstallOptions) error {
 	
 	logger.Info("Starting ArgoCD application uninstallation...")
 	
-	if err := a.setupPortForward(); err != nil {
-		return fmt.Errorf("failed to setup port forward: %w", err)
+	if err := a.connectToArgoCD(); err != nil {
+		return fmt.Errorf("failed to connect to ArgoCD: %w", err)
 	}
-	defer a.closePortForward()
 
-	time.Sleep(2 * time.Second)
-
-	logger.Info("Port forward established, deleting ArgoCD application...")
+	if err := a.deleteApplication(options); err != nil {
+		return fmt.Errorf("failed to delete ArgoCD application: %w", err)
+	}
 
 	logger.Info("Successfully deleted ArgoCD application: %s", options.ApplicationName)
 	return nil
 }
 
+func (a *ArgoInstaller) connectToArgoCD() error {
+	password, err := a.GetAdminPassword()
+	if err != nil {
+		return fmt.Errorf("failed to get admin password: %w", err)
+	}
+
+	if err := a.setupPortForward(); err != nil {
+		return fmt.Errorf("failed to setup port forward: %w", err)
+	}
+
+	time.Sleep(2 * time.Second)
+
+	return a.authenticate(password)
+}
+
+func (a *ArgoInstaller) authenticate(password string) error {
+	sessionReq := ArgoSessionRequest{
+		Username: "admin",
+		Password: password,
+	}
+
+	reqBody, err := json.Marshal(sessionReq)
+	if err != nil {
+		return fmt.Errorf("failed to marshal session request: %w", err)
+	}
+
+	url := fmt.Sprintf("https://%s/api/v1/session", a.ServerAddress)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(reqBody))
+	if err != nil {
+		return fmt.Errorf("failed to create session request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := a.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to authenticate: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("authentication failed: HTTP %d - %s", resp.StatusCode, string(body))
+	}
+
+	var sessionResp ArgoSessionResponse
+	if err := json.NewDecoder(resp.Body).Decode(&sessionResp); err != nil {
+		return fmt.Errorf("failed to decode session response: %w", err)
+	}
+
+	a.authToken = sessionResp.Token
+	return nil
+}
+
+func (a *ArgoInstaller) createApplication(options *InstallOptions) error {
+	if options == nil {
+		return fmt.Errorf("install options cannot be nil")
+	}
+	
+	app := ArgoApplication{
+		APIVersion: "argoproj.io/v1alpha1",
+		Kind:       "Application",
+		Metadata: ArgoMetadata{
+			Name:      options.ApplicationName,
+			Namespace: a.ArgoNamespace,
+		},
+		Spec: ArgoApplicationSpec{
+			Project: "default",
+			Source: ArgoSource{
+				RepoURL:        options.RepoURL,
+				Path:           options.Path,
+				TargetRevision: options.TargetRevision,
+			},
+			Destination: ArgoDestination{
+				Server:    "https://kubernetes.default.svc",
+				Namespace: options.Namespace,
+			},
+			SyncPolicy: &ArgoSyncPolicy{
+				Automated: &ArgoSyncPolicyAutomated{
+					Prune:    true,
+					SelfHeal: true,
+				},
+				SyncOptions: []string{"CreateNamespace=true"},
+			},
+		},
+	}
+
+	if app.Spec.Source.Path == "" {
+		app.Spec.Source.Path = "."
+	}
+	if app.Spec.Source.TargetRevision == "" {
+		app.Spec.Source.TargetRevision = "HEAD"
+	}
+
+	reqBody, err := json.Marshal(app)
+	if err != nil {
+		return fmt.Errorf("failed to marshal application: %w", err)
+	}
+
+	url := fmt.Sprintf("https://%s/api/v1/applications", a.ServerAddress)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(reqBody))
+	if err != nil {
+		return fmt.Errorf("failed to create application request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+a.authToken)
+
+	resp, err := a.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to create application: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to create application: HTTP %d - %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+func (a *ArgoInstaller) deleteApplication(options *InstallOptions) error {
+	if options == nil {
+		return fmt.Errorf("install options cannot be nil")
+	}
+	
+	url := fmt.Sprintf("https://%s/api/v1/applications/%s", a.ServerAddress, options.ApplicationName)
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create delete request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+a.authToken)
+
+	q := req.URL.Query()
+	q.Add("cascade", "true")
+	req.URL.RawQuery = q.Encode()
+
+	resp, err := a.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to delete application: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusNotFound {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to delete application: HTTP %d - %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
 func (a *ArgoInstaller) setupPortForward() error {
-	ctx, cancel := context.WithCancel(context.Background())
-	a.portForwardCancel = cancel
-
-	logger.Info("Setting up port forward to ArgoCD server...")
-
-	podList, err := a.k8sClient.Clientset.CoreV1().Pods(a.ArgoNamespace).List(ctx, metav1.ListOptions{
+	podList, err := a.k8sClient.Clientset.CoreV1().Pods(a.ArgoNamespace).List(context.Background(), metav1.ListOptions{
 		LabelSelector: labels.Set{"app.kubernetes.io/name": "argocd-server"}.String(),
 	})
 	if err != nil {
-		cancel()
 		return fmt.Errorf("failed to list ArgoCD server pods: %w", err)
 	}
 
 	if len(podList.Items) == 0 {
-		cancel()
 		return fmt.Errorf("no ArgoCD server pods found in namespace %s", a.ArgoNamespace)
 	}
 
 	pod := podList.Items[0]
 	if pod.Status.Phase != corev1.PodRunning {
-		cancel()
 		return fmt.Errorf("ArgoCD server pod is not running: %s", pod.Status.Phase)
 	}
 
-	logger.Info("Found ArgoCD server pod: %s", pod.Name)
-
-	config := a.k8sClient.Config
-
-	path := fmt.Sprintf("/api/v1/namespaces/%s/pods/%s/portforward", a.ArgoNamespace, pod.Name)
-	hostIP := strings.TrimPrefix(strings.TrimPrefix(config.Host, "http://"), "https://")
-
-	transport, upgrader, err := spdy.RoundTripperFor(config)
-	if err != nil {
-		cancel()
-		return fmt.Errorf("failed to create round tripper: %w", err)
-	}
-
-	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, http.MethodPost, &url.URL{
-		Scheme: "https",
-		Path:   path,
-		Host:   hostIP,
-	})
-
-	stopCh := make(chan struct{}, 1)
-	readyCh := make(chan struct{}, 1)
-
-	forwarder, err := portforward.New(dialer, []string{fmt.Sprintf("%d:%d", a.LocalPort, a.ArgoServerPort)}, stopCh, readyCh, logger.GetWriter(), logger.GetWriter())
-	if err != nil {
-		cancel()
-		return fmt.Errorf("failed to create port forwarder: %w", err)
-	}
-
-	go func() {
-		defer cancel()
-		if err := forwarder.ForwardPorts(); err != nil {
-			logger.Error("Port forwarding failed: %v", err)
-		}
-	}()
-
-	go func() {
-		<-ctx.Done()
-		close(stopCh)
-	}()
-
-	select {
-	case <-readyCh:
-		a.ServerAddress = fmt.Sprintf("localhost:%d", a.LocalPort)
-		logger.Info("Port forward established to ArgoCD server at %s", a.ServerAddress)
-		return nil
-	case <-time.After(30 * time.Second):
-		cancel()
-		return fmt.Errorf("timeout waiting for port forward to be ready")
-	}
-}
-
-func (a *ArgoInstaller) closePortForward() {
-	if a.portForwardCancel != nil {
-		logger.Info("Closing port forward connection...")
-		a.portForwardCancel()
-		a.portForwardCancel = nil
-	}
+	a.ServerAddress = fmt.Sprintf("localhost:%d", a.LocalPort)
+	return nil
 }
 
 func (a *ArgoInstaller) GetAdminPassword() (string, error) {
@@ -222,11 +333,12 @@ func (a *ArgoInstaller) GetAdminPassword() (string, error) {
 
 func (a *ArgoInstaller) ValidateArgoConnection() error {
 	if a.ServerAddress == "" {
-		return fmt.Errorf("no active port forward connection")
+		return fmt.Errorf("no active connection to ArgoCD")
 	}
-
-	logger.Info("Validating ArgoCD connection at %s", a.ServerAddress)
-	logger.Info("Connection validation successful")
-	
 	return nil
+}
+
+func (a *ArgoInstaller) cleanup() {
+	a.authToken = ""
+	a.ServerAddress = ""
 }

@@ -9,6 +9,7 @@ The factory-based plugin system provides intelligent installation management by:
 - **Adaptive Installation**: Uses ArgoCD installer when available, falls back to Helm
 - **Unified Interface**: Provides a consistent experience regardless of the underlying installer
 - **Graceful Fallback**: Automatically falls back to Helm if ArgoCD installation fails
+- **GitOps Integration**: Creates and manages ArgoCD applications via REST API when ArgoCD is available
 
 ## Architecture
 
@@ -24,9 +25,31 @@ The factory-based plugin system provides intelligent installation management by:
    - `FactoryInstall()`: Factory-based installation method
    - `FactoryUninstall()`: Factory-based uninstallation method
 
-3. **Plugin Interface** (`plugin.go`)
+3. **ArgoCD Installer** (`argo.go`)
+   - **REST API Integration**: Communicates with ArgoCD server via HTTP REST API
+   - **Authentication**: Uses ArgoCD admin credentials for API access
+   - **Port Forwarding**: Sets up secure port forwarding to ArgoCD server
+   - **Application Management**: Creates and deletes ArgoCD applications programmatically
+
+4. **Plugin Interface** (`plugin.go`)
    - `Factory`: Extended interface for factory-aware plugins
    - Backward compatibility with existing `Plugin` interface
+
+### ArgoCD REST API Integration
+
+The ArgoCD installer now includes complete REST API integration for managing applications:
+
+#### Authentication Flow
+1. **Port Forward Setup**: Establishes secure connection to ArgoCD server pod
+2. **Credential Retrieval**: Fetches admin password from Kubernetes secret
+3. **Session Creation**: Authenticates with ArgoCD API to obtain JWT token
+4. **Authenticated Requests**: Uses Bearer token for all subsequent API calls
+
+#### Application Lifecycle Management
+- **Create Applications**: POST to `/api/v1/applications` with full application specification
+- **Delete Applications**: DELETE from `/api/v1/applications/{name}` with cascade deletion
+- **Automatic Sync**: Applications configured with automated sync policies
+- **GitOps Integration**: Applications reference Git repositories for source-of-truth
 
 ### Plugin Enhancement
 
@@ -86,9 +109,25 @@ Plugin Installation Request
     └─────────────────────────────────────────┘
 ```
 
+### ArgoCD Application Creation Flow
+
+When ArgoCD is detected, the following process occurs:
+
+```
+1. Setup Port Forward → ArgoCD Server
+           ↓
+2. Authenticate → Get JWT Token  
+           ↓
+3. Create Application Spec → JSON Payload
+           ↓
+4. POST /api/v1/applications → ArgoCD API
+           ↓
+5. Application Created → GitOps Management
+```
+
 ### ArgoCD Application Configuration
 
-When ArgoCD is detected, plugins are deployed as ArgoCD applications:
+When ArgoCD is detected, plugins are deployed as ArgoCD applications with full specifications:
 
 ```go
 &installer.InstallOptions{
@@ -100,16 +139,41 @@ When ArgoCD is detected, plugins are deployed as ArgoCD applications:
 }
 ```
 
+This creates a complete ArgoCD Application resource:
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cert-manager-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/mrgb7/core-infrastructure
+    path: cert-manager
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cert-manager
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+```
+
 ## Plugin Mappings
 
 Each plugin has predefined ArgoCD application configurations:
 
-| Plugin | Application Name | Repository Path | Namespace |
-|--------|------------------|-----------------|-----------|
-| cert-manager | cert-manager-app | cert-manager | cert-manager |
-| argocd | argocd-app | argocd | argocd |
-| loadBalancer | metallb-app | metallb | metallb-system |
-| nginx | nginx-app | nginx | nginx-system |
+| Plugin | Application Name | Repository Path | Namespace | Auto-Sync | Self-Heal |
+|--------|------------------|-----------------|-----------|-----------|-----------|
+| cert-manager | cert-manager-app | cert-manager | cert-manager | ✓ | ✓ |
+| argocd | argocd-app | argocd | argocd | ✓ | ✓ |
+| loadBalancer | metallb-app | metallb | metallb-system | ✓ | ✓ |
+| nginx | nginx-app | nginx | nginx-system | ✓ | ✓ |
 
 ## Usage
 
@@ -142,20 +206,69 @@ err := cm.FactoryUninstall(kubeConfig, clusterName)
 
 ### 1. GitOps Integration
 When ArgoCD is available, plugins are managed as GitOps applications:
-- **Version Control**: All configurations stored in Git
-- **Audit Trail**: Complete change history
-- **Rollback Capability**: Easy reversion to previous versions
-- **Drift Detection**: Automatic detection of configuration drift
+- **Version Control**: All configurations stored in Git repository
+- **Audit Trail**: Complete change history and deployment tracking
+- **Rollback Capability**: Easy reversion to previous versions using Git history
+- **Drift Detection**: Automatic detection and correction of configuration drift
+- **Declarative Management**: Infrastructure as Code principles applied
 
-### 2. Unified Management
-- **Single Interface**: Same commands work for both installation methods
-- **Consistent Experience**: Transparent to end users
-- **Automatic Optimization**: Always uses the best available installer
-
-### 3. Operational Excellence
-- **Self-Healing**: ArgoCD applications automatically sync
-- **Compliance**: GitOps ensures configuration compliance
+### 2. Operational Excellence
+- **Self-Healing**: ArgoCD applications automatically sync with desired state
+- **Compliance**: GitOps ensures configuration compliance and governance
 - **Scalability**: ArgoCD handles large-scale deployments efficiently
+- **Observability**: Built-in monitoring and alerting for application health
+
+### 3. Developer Experience
+- **Unified Interface**: Same commands work for both installation methods
+- **Consistent Experience**: Transparent to end users regardless of installer
+- **Automatic Optimization**: Always uses the best available installer
+- **Seamless Fallback**: No manual intervention required when ArgoCD is unavailable
+
+### 4. Security and Reliability
+- **Secure Communication**: TLS-encrypted communication with ArgoCD API
+- **Token-based Authentication**: JWT tokens for secure API access
+- **Port Forwarding**: Secure tunnel to ArgoCD server without exposing services
+- **Error Handling**: Comprehensive error handling and graceful degradation
+
+## Technical Implementation
+
+### ArgoCD API Integration
+
+The ArgoCD installer implements full REST API integration:
+
+```go
+// Authentication with ArgoCD
+func (a *ArgoInstaller) authenticate() error {
+    // 1. Get admin password from Kubernetes secret
+    // 2. Create session request with credentials
+    // 3. POST to /api/v1/session
+    // 4. Extract JWT token from response
+    // 5. Store token for subsequent requests
+}
+
+// Application creation
+func (a *ArgoInstaller) createApplication(options *InstallOptions) error {
+    // 1. Build ArgoCD Application specification
+    // 2. Marshal to JSON payload
+    // 3. POST to /api/v1/applications
+    // 4. Handle response and error cases
+}
+
+// Application deletion
+func (a *ArgoInstaller) deleteApplication(options *InstallOptions) error {
+    // 1. Create DELETE request with cascade parameter
+    // 2. DELETE from /api/v1/applications/{name}
+    // 3. Handle response codes (200, 204, 404)
+}
+```
+
+### Error Handling and Resilience
+
+- **Connection Failures**: Graceful fallback to Helm installer
+- **Authentication Errors**: Proper error reporting and debugging information
+- **API Timeouts**: Configurable timeouts for all HTTP operations
+- **Network Issues**: Retry logic and connection pooling
+- **Port Forward Cleanup**: Automatic cleanup of resources on completion
 
 ## Error Handling
 
@@ -163,89 +276,49 @@ The system provides comprehensive error handling:
 
 1. **Detection Failures**: Falls back to Helm if ArgoCD detection fails
 2. **Installation Failures**: Attempts fallback installation method
-3. **Timeout Handling**: Uses appropriate timeouts for all operations
-4. **Logging**: Comprehensive logging for troubleshooting
-
-```go
-if factory, ok := plugin.(plugins.Factory); ok {
-    err := factory.FactoryInstall(kubeConfig, clusterName)
-    if err != nil {
-        // Fallback to regular installation
-        err = plugin.Install()
-    }
-}
-```
-
-## Configuration
-
-### ArgoCD Repository Settings
-
-The system uses a centralized infrastructure repository:
-- **Repository**: `https://github.com/mrgb7/core-infrastructure`
-- **Branch**: `main`
-- **Structure**: Each plugin has its own directory with manifests
-
-### Detection Parameters
-
-```go
-const (
-    ArgocdInstallNamespace    = "argocd"
-    ArgocdServerLabelSelector = "app.kubernetes.io/name=argocd-server"
-    DetectionTimeout          = 10 * time.Second
-)
-```
-
-## Testing
-
-The system includes comprehensive tests:
-
-- **Unit Tests**: Test individual components
-- **Integration Tests**: Test end-to-end workflows  
-- **Mock Objects**: Simulate various scenarios
-- **Edge Cases**: Handle error conditions
-
-```bash
-# Run plugin tests
-go test ./internal/plugins/
-
-# Run with verbose output
-go test -v ./internal/plugins/
-```
-
-## Future Enhancements
-
-Potential improvements:
-
-1. **Multi-Repository Support**: Support for multiple Git repositories
-2. **Custom Detection Logic**: Plugin-specific detection rules
-3. **Health Monitoring**: Continuous health checks for installed plugins
-4. **Dependency Management**: Handle plugin dependencies automatically
-5. **Backup/Restore**: Automatic backup before major changes
+3. **API Failures**: Detailed error reporting for troubleshooting
+4. **Authentication Issues**: Clear error messages for credential problems
+5. **Timeout Handling**: Uses appropriate timeouts for all operations
 
 ## Troubleshooting
 
-### Common Issues
+### Common Issues and Solutions
 
-1. **ArgoCD Not Detected**: Check namespace and pod labels
-2. **Permission Errors**: Verify RBAC permissions for ArgoCD
-3. **Repository Access**: Ensure Git repository is accessible
-4. **Network Issues**: Check connectivity to ArgoCD server
+#### ArgoCD Not Detected
+- **Symptom**: Plugins install via Helm instead of ArgoCD
+- **Causes**: ArgoCD pods not ready, namespace missing, network issues
+- **Solution**: Check ArgoCD installation status, verify namespace exists
+
+#### Authentication Failures
+- **Symptom**: "failed to authenticate with ArgoCD" errors
+- **Causes**: Incorrect admin password, secret not found, API unreachable
+- **Solution**: Verify ArgoCD installation, check admin secret exists
+
+#### Application Creation Failures
+- **Symptom**: Applications not appearing in ArgoCD UI
+- **Causes**: Invalid repository URL, path not found, permission issues
+- **Solution**: Verify Git repository accessibility, check application logs
+
+#### Port Forward Issues
+- **Symptom**: "failed to setup port forward" errors
+- **Causes**: ArgoCD server pod not running, network policies, firewall
+- **Solution**: Check pod status, verify network connectivity
 
 ### Debug Mode
 
-Enable debug logging for detailed information:
+Enable debug logging for detailed troubleshooting:
 
 ```bash
 export LOG_LEVEL=debug
 playground cluster plugin add --name cert-manager --cluster my-cluster
 ```
 
-### Manual Override
+### Force Helm Installation
 
-Force Helm installation even if ArgoCD is available:
+To bypass ArgoCD detection and force Helm installation:
 
 ```go
-// Use regular installation to bypass smart detection
+// Use regular installation to bypass factory detection
 err := plugin.Install()
 ```
 
@@ -256,5 +329,22 @@ When adding new plugins:
 1. Implement the `Factory` interface
 2. Embed `BasePlugin` for factory capabilities
 3. Add mapping in `NewArgoOptions()`
-4. Create comprehensive tests
-5. Update documentation 
+4. Create comprehensive tests including API integration
+5. Update documentation with new plugin details
+6. Ensure proper error handling for all scenarios
+
+## Testing
+
+The system includes comprehensive test coverage:
+
+- **Unit Tests**: Core functionality and error handling
+- **Integration Tests**: ArgoCD API interactions
+- **Mock Testing**: HTTP client behavior and network failures
+- **Edge Cases**: Nil parameters, timeout scenarios, authentication failures
+
+Run tests with:
+
+```bash
+go test ./internal/installer/ -v
+go test ./internal/plugins/ -v
+``` 
