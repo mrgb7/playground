@@ -51,6 +51,10 @@ func NewArgoInstaller(kubeConfig, clusterName string) (*ArgoInstaller, error) {
 }
 
 func (a *ArgoInstaller) Install(options *InstallOptions) error {
+	if options == nil {
+		return fmt.Errorf("install options cannot be nil")
+	}
+	
 	logger.Info("Starting ArgoCD application installation...")
 	
 	if err := a.setupPortForward(); err != nil {
@@ -99,6 +103,10 @@ func (a *ArgoInstaller) Install(options *InstallOptions) error {
 }
 
 func (a *ArgoInstaller) UnInstall(options *InstallOptions) error {
+	if options == nil {
+		return fmt.Errorf("install options cannot be nil")
+	}
+	
 	logger.Info("Starting ArgoCD application uninstallation...")
 	
 	if err := a.setupPortForward(); err != nil {
