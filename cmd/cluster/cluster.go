@@ -13,4 +13,7 @@ var ClusterCmd = &cobra.Command{
 
 func init() {
 	ClusterCmd.AddCommand(plugin.PluginCmd)
+	ClusterCmd.AddCommand(createCmd)
+	ClusterCmd.AddCommand(deleteCmd)
+	ClusterCmd.AddCommand(cleanCmd)
 }

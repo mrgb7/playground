@@ -23,6 +23,11 @@ func Info(format string, args ...interface{}) {
 	infoColor.Printf(format, args...)
 }
 
+// Infof prints an informational message in green color (alias for Info).
+func Infof(format string, args ...interface{}) {
+	infoColor.Printf(format, args...)
+}
+
 // Infoln prints an informational message in green color with a newline.
 func Infoln(format string, args ...interface{}) {
 	infoColor.Printf(format+"\n", args...)
@@ -30,6 +35,11 @@ func Infoln(format string, args ...interface{}) {
 
 // Warn prints a warning message in yellow color.
 func Warn(format string, args ...interface{}) {
+	warnColor.Printf(format, args...)
+}
+
+// Warnf prints a warning message in yellow color (alias for Warn).
+func Warnf(format string, args ...interface{}) {
 	warnColor.Printf(format, args...)
 }
 
@@ -43,6 +53,11 @@ func Error(format string, args ...interface{}) {
 	errorColor.Printf(format, args...)
 }
 
+// Errorf prints an error message in red color (alias for Error).
+func Errorf(format string, args ...interface{}) {
+	errorColor.Printf(format, args...)
+}
+
 // Errorln prints an error message in red color with a newline.
 func Errorln(format string, args ...interface{}) {
 	errorColor.Printf(format+"\n", args...)
@@ -53,6 +68,11 @@ func Debug(format string, args ...interface{}) {
 	debugColor.Printf(format, args...)
 }
 
+// Debugf prints a debug message in cyan color (alias for Debug).
+func Debugf(format string, args ...interface{}) {
+	debugColor.Printf(format, args...)
+}
+
 // Debugln prints a debug message in cyan color with a newline.
 func Debugln(format string, args ...interface{}) {
 	debugColor.Printf(format+"\n", args...)
@@ -60,6 +80,11 @@ func Debugln(format string, args ...interface{}) {
 
 // Success prints a success message in bold green color.
 func Success(format string, args ...interface{}) {
+	successColor.Printf(format, args...)
+}
+
+// Successf prints a success message in bold green color (alias for Success).
+func Successf(format string, args ...interface{}) {
 	successColor.Printf(format, args...)
 }
 

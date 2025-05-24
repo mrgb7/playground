@@ -52,6 +52,5 @@ var cleanCmd = &cobra.Command{
 }
 
 func init() {
-	ClusterCmd.AddCommand(cleanCmd)
 	cleanCmd.Flags().BoolVarP(&cPurge, "purge", "p", false, "Purge all resources")
 }

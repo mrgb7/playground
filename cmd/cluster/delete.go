@@ -56,6 +56,5 @@ var (
 )
 
 func init() {
-	ClusterCmd.AddCommand(deleteCmd)
 	deleteCmd.Flags().BoolVarP(&cDeleteForce, "force", "f", false, "Force delete cluster resources")
 }
