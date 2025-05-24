@@ -1,0 +1,719 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>installer: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/mrgb7/playground/internal/installer/argo.go (9.5%)</option>
+				
+				<option value="file1">github.com/mrgb7/playground/internal/installer/helm.go (0.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package installer
+
+import (
+        "bytes"
+        "context"
+        "crypto/tls"
+        "encoding/json"
+        "fmt"
+        "io"
+        "net/http"
+        "time"
+
+        "github.com/mrgb7/playground/internal/k8s"
+        "github.com/mrgb7/playground/pkg/logger"
+        corev1 "k8s.io/api/core/v1"
+        metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+        "k8s.io/apimachinery/pkg/labels"
+        "k8s.io/client-go/tools/portforward"
+        "k8s.io/client-go/transport/spdy"
+)
+
+type ArgoInstaller struct {
+        KubeConfig     string
+        ClusterName    string
+        ArgoNamespace  string
+        ArgoServerPort int
+        LocalPort      int
+        ServerAddress  string
+        k8sClient      *k8s.K8sClient
+        httpClient     *http.Client
+        authToken      string
+        stopChannel    chan struct{}
+        readyChannel   chan struct{}
+}
+
+type ArgoApplication struct {
+        APIVersion string              `json:"apiVersion"`
+        Kind       string              `json:"kind"`
+        Metadata   ArgoMetadata        `json:"metadata"`
+        Spec       ArgoApplicationSpec `json:"spec"`
+}
+
+type ArgoMetadata struct {
+        Name      string `json:"name"`
+        Namespace string `json:"namespace"`
+}
+
+type ArgoApplicationSpec struct {
+        Project     string          `json:"project"`
+        Source      ArgoSource      `json:"source"`
+        Destination ArgoDestination `json:"destination"`
+        SyncPolicy  *ArgoSyncPolicy `json:"syncPolicy,omitempty"`
+}
+
+type ArgoSource struct {
+        RepoURL        string  `json:"repoURL"`
+        Path           string  `json:"path"`
+        TargetRevision string  `json:"targetRevision"`
+        Chart          *string `json:"chart,omitempty"` // Optional, used for Helm charts
+        Helm           *struct {
+                ReleaseName  string `json:"releaseName,omitempty"`
+                ValuesObject map[string]interface{}
+        } `json:"helm,omitempty"` // Optional, used for Helm charts
+}
+
+type ArgoDestination struct {
+        Server    string `json:"server"`
+        Namespace string `json:"namespace"`
+}
+
+type ArgoSyncPolicy struct {
+        Automated   *ArgoSyncPolicyAutomated `json:"automated,omitempty"`
+        SyncOptions []string                 `json:"syncOptions,omitempty"`
+}
+
+type ArgoSyncPolicyAutomated struct {
+        Prune    bool `json:"prune,omitempty"`
+        SelfHeal bool `json:"selfHeal,omitempty"`
+}
+
+type ArgoSessionRequest struct {
+        Username string `json:"username"`
+        Password string `json:"password"`
+}
+
+type ArgoSessionResponse struct {
+        Token string `json:"token"`
+}
+
+const (
+        DefaultArgoNamespace  = "argocd"
+        DefaultArgoServerPort = 443
+        DefaultLocalPort      = 8080
+)
+
+func NewArgoInstaller(kubeConfig, clusterName string) (*ArgoInstaller, error) <span class="cov8" title="1">{
+        k8sClient, err := k8s.NewK8sClient(kubeConfig)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to create k8s client: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">httpClient := &amp;http.Client{
+                Timeout: 30 * time.Second,
+                Transport: &amp;http.Transport{
+                        TLSClientConfig: &amp;tls.Config{InsecureSkipVerify: true},
+                },
+        }
+
+        return &amp;ArgoInstaller{
+                KubeConfig:     kubeConfig,
+                ClusterName:    clusterName,
+                ArgoNamespace:  DefaultArgoNamespace,
+                ArgoServerPort: DefaultArgoServerPort,
+                LocalPort:      DefaultLocalPort,
+                k8sClient:      k8sClient,
+                httpClient:     httpClient,
+        }, nil</span>
+}
+
+func (a *ArgoInstaller) Install(options *InstallOptions) error <span class="cov8" title="1">{
+        if options == nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("install options cannot be nil")
+        }</span>
+
+        <span class="cov0" title="0">logger.Infoln("Starting ArgoCD application installation...")
+
+        if err := a.connectToArgoCD(); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to connect to ArgoCD: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer a.cleanup()
+
+        if err := a.createApplication(options); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create ArgoCD application: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">logger.Infoln("Successfully created ArgoCD application: %s", options.ApplicationName)
+        return nil</span>
+}
+
+func (a *ArgoInstaller) UnInstall(options *InstallOptions) error <span class="cov8" title="1">{
+        if options == nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("install options cannot be nil")
+        }</span>
+
+        <span class="cov0" title="0">logger.Infoln("Starting ArgoCD application uninstallation...")
+
+        if err := a.connectToArgoCD(); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to connect to ArgoCD: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer a.cleanup()
+
+        if err := a.deleteApplication(options); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to delete ArgoCD application: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">logger.Infoln("Successfully deleted ArgoCD application: %s", options.ApplicationName)
+        return nil</span>
+}
+
+func (a *ArgoInstaller) connectToArgoCD() error <span class="cov0" title="0">{
+        password, err := a.GetAdminPassword()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to get admin password: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">if err := a.setupPortForward(); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to setup port forward: %w", err)
+        }</span>
+
+        // Wait a bit longer for the port forward to be fully established
+        <span class="cov0" title="0">logger.Infoln("Waiting for port forward to stabilize...")
+        time.Sleep(5 * time.Second)
+
+        // Retry authentication with backoff
+        var authErr error
+        for i := 0; i &lt; 3; i++ </span><span class="cov0" title="0">{
+                authErr = a.authenticate(password)
+                if authErr == nil </span><span class="cov0" title="0">{
+                        return nil
+                }</span>
+                <span class="cov0" title="0">logger.Warnln("Authentication attempt %d failed: %v, retrying...", i+1, authErr)
+                time.Sleep(time.Duration(i+1) * 2 * time.Second)</span>
+        }
+
+        <span class="cov0" title="0">return fmt.Errorf("failed to authenticate after 3 attempts: %w", authErr)</span>
+}
+
+func (a *ArgoInstaller) authenticate(password string) error <span class="cov0" title="0">{
+        sessionReq := ArgoSessionRequest{
+                Username: "admin",
+                Password: password,
+        }
+
+        reqBody, err := json.Marshal(sessionReq)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to marshal session request: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">url := fmt.Sprintf("http://%s/api/v1/session", a.ServerAddress)
+        req, err := http.NewRequest("POST", url, bytes.NewBuffer(reqBody))
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create session request: %w", err)
+        }</span>
+        <span class="cov0" title="0">req.Header.Set("Content-Type", "application/json")
+
+        resp, err := a.httpClient.Do(req)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to authenticate: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer resp.Body.Close()
+
+        if resp.StatusCode != http.StatusOK </span><span class="cov0" title="0">{
+                body, _ := io.ReadAll(resp.Body)
+                return fmt.Errorf("authentication failed: HTTP %d - %s", resp.StatusCode, string(body))
+        }</span>
+
+        <span class="cov0" title="0">var sessionResp ArgoSessionResponse
+        if err := json.NewDecoder(resp.Body).Decode(&amp;sessionResp); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to decode session response: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">a.authToken = sessionResp.Token
+        return nil</span>
+}
+
+func (a *ArgoInstaller) createApplication(options *InstallOptions) error <span class="cov0" title="0">{
+        if options == nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("install options cannot be nil")
+        }</span>
+
+        <span class="cov0" title="0">app := ArgoApplication{
+                APIVersion: "argoproj.io/v1alpha1",
+                Kind:       "Application",
+                Metadata: ArgoMetadata{
+                        Name:      options.ApplicationName,
+                        Namespace: a.ArgoNamespace,
+                },
+                Spec: ArgoApplicationSpec{
+                        Project: "default",
+                        Source: ArgoSource{
+                                RepoURL:        options.RepoURL,
+                                Path:           options.Path,
+                                TargetRevision: options.Version,
+                        },
+                        Destination: ArgoDestination{
+                                Server:    "https://kubernetes.default.svc",
+                                Namespace: options.Namespace,
+                        },
+                        SyncPolicy: &amp;ArgoSyncPolicy{
+                                Automated: &amp;ArgoSyncPolicyAutomated{
+                                        Prune:    true,
+                                        SelfHeal: true,
+                                },
+                                SyncOptions: []string{"CreateNamespace=true"},
+                        },
+                },
+        }
+        if options.ChartName != nil </span><span class="cov0" title="0">{
+                app.Spec.Source.Chart = options.ChartName
+                app.Spec.Source.Helm.ReleaseName = options.ApplicationName
+                app.Spec.Source.Helm.ValuesObject = options.Values
+        }</span>
+
+        <span class="cov0" title="0">if app.Spec.Source.Path == "" </span><span class="cov0" title="0">{
+                app.Spec.Source.Path = "."
+        }</span>
+        <span class="cov0" title="0">if app.Spec.Source.TargetRevision == "" </span><span class="cov0" title="0">{
+                app.Spec.Source.TargetRevision = "HEAD"
+        }</span>
+
+        <span class="cov0" title="0">reqBody, err := json.Marshal(app)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to marshal application: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">url := fmt.Sprintf("http://%s/api/v1/applications", a.ServerAddress)
+        req, err := http.NewRequest("POST", url, bytes.NewBuffer(reqBody))
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create application request: %w", err)
+        }</span>
+        <span class="cov0" title="0">req.Header.Set("Content-Type", "application/json")
+        req.Header.Set("Authorization", "Bearer "+a.authToken)
+
+        resp, err := a.httpClient.Do(req)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create application: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer resp.Body.Close()
+
+        if resp.StatusCode != http.StatusOK &amp;&amp; resp.StatusCode != http.StatusCreated </span><span class="cov0" title="0">{
+                body, _ := io.ReadAll(resp.Body)
+                return fmt.Errorf("failed to create application: HTTP %d - %s", resp.StatusCode, string(body))
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (a *ArgoInstaller) deleteApplication(options *InstallOptions) error <span class="cov0" title="0">{
+        if options == nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("install options cannot be nil")
+        }</span>
+
+        <span class="cov0" title="0">url := fmt.Sprintf("http://%s/api/v1/applications/%s", a.ServerAddress, options.ApplicationName)
+        req, err := http.NewRequest("DELETE", url, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create delete request: %w", err)
+        }</span>
+        <span class="cov0" title="0">req.Header.Set("Authorization", "Bearer "+a.authToken)
+
+        q := req.URL.Query()
+        q.Add("cascade", "true")
+        req.URL.RawQuery = q.Encode()
+
+        resp, err := a.httpClient.Do(req)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to delete application: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer resp.Body.Close()
+
+        if resp.StatusCode != http.StatusOK &amp;&amp; resp.StatusCode != http.StatusNoContent &amp;&amp; resp.StatusCode != http.StatusNotFound </span><span class="cov0" title="0">{
+                body, _ := io.ReadAll(resp.Body)
+                return fmt.Errorf("failed to delete application: HTTP %d - %s", resp.StatusCode, string(body))
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (a *ArgoInstaller) setupPortForward() error <span class="cov0" title="0">{
+        podList, err := a.k8sClient.Clientset.CoreV1().Pods(a.ArgoNamespace).List(context.Background(), metav1.ListOptions{
+                LabelSelector: labels.Set{"app.kubernetes.io/name": "argocd-server"}.String(),
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to list ArgoCD server pods: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">if len(podList.Items) == 0 </span><span class="cov0" title="0">{
+                return fmt.Errorf("no ArgoCD server pods found in namespace %s", a.ArgoNamespace)
+        }</span>
+
+        <span class="cov0" title="0">pod := podList.Items[0]
+        if pod.Status.Phase != corev1.PodRunning </span><span class="cov0" title="0">{
+                return fmt.Errorf("ArgoCD server pod is not running: %s", pod.Status.Phase)
+        }</span>
+
+        <span class="cov0" title="0">logger.Infoln("Setting up port forward to ArgoCD server pod: %s", pod.Name)
+        req := a.k8sClient.Clientset.CoreV1().RESTClient().Post().
+                Resource("pods").
+                Namespace(a.ArgoNamespace).
+                Name(pod.Name).
+                SubResource("portforward")
+        transport, upgrader, err := spdy.RoundTripperFor(a.k8sClient.Config)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create SPDY transport: %w", err)
+        }</span>
+        <span class="cov0" title="0">ports := []string{fmt.Sprintf("%d:8080", a.LocalPort)}
+
+        a.stopChannel = make(chan struct{}, 1)
+        a.readyChannel = make(chan struct{}, 1)
+        out := &amp;bytes.Buffer{}
+        errOut := &amp;bytes.Buffer{}
+        dialer := spdy.NewDialer(upgrader, &amp;http.Client{Transport: transport}, "POST", req.URL())
+        forwarder, err := portforward.New(
+                dialer,
+                ports,
+                a.stopChannel,
+                a.readyChannel,
+                out,
+                errOut,
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create port forwarder: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">errChan := make(chan error, 1)
+        go func() </span><span class="cov0" title="0">{
+                if err := forwarder.ForwardPorts(); err != nil </span><span class="cov0" title="0">{
+                        logger.Errorln("Port forwarding failed: %v", err)
+                        errChan &lt;- err
+                }</span>
+        }()
+
+        <span class="cov0" title="0">select </span>{
+        case &lt;-a.readyChannel:<span class="cov0" title="0">
+                logger.Infoln("Port forward established successfully")</span>
+        case err := &lt;-errChan:<span class="cov0" title="0">
+                close(a.stopChannel)
+                return fmt.Errorf("port forwarding failed: %w", err)</span>
+        case &lt;-time.After(15 * time.Second):<span class="cov0" title="0">
+                close(a.stopChannel)
+                return fmt.Errorf("timeout waiting for port forward to be ready")</span>
+        }
+
+        <span class="cov0" title="0">a.ServerAddress = fmt.Sprintf("localhost:%d", a.LocalPort)
+        return nil</span>
+}
+
+func (a *ArgoInstaller) GetAdminPassword() (string, error) <span class="cov0" title="0">{
+        secret, err := a.k8sClient.Clientset.CoreV1().Secrets(a.ArgoNamespace).Get(context.Background(), "argocd-initial-admin-secret", metav1.GetOptions{})
+        if err != nil </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("failed to get ArgoCD admin secret: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">password := string(secret.Data["password"])
+        if password == "" </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("ArgoCD admin password not found in secret")
+        }</span>
+
+        <span class="cov0" title="0">return password, nil</span>
+}
+
+func (a *ArgoInstaller) ValidateArgoConnection() error <span class="cov8" title="1">{
+        if a.ServerAddress == "" </span><span class="cov8" title="1">{
+                return fmt.Errorf("no active connection to ArgoCD")
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (a *ArgoInstaller) cleanup() <span class="cov8" title="1">{
+        a.authToken = ""
+        a.ServerAddress = ""
+        if a.stopChannel != nil </span><span class="cov0" title="0">{
+                logger.Infoln("Terminating port forward process...")
+                close(a.stopChannel)
+                a.stopChannel = nil
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package installer
+
+import (
+        "context"
+        "fmt"
+        "log"
+        "os"
+        "path/filepath"
+        "time"
+
+        "helm.sh/helm/v3/pkg/action"
+        "helm.sh/helm/v3/pkg/chart"
+        "helm.sh/helm/v3/pkg/chart/loader"
+        "helm.sh/helm/v3/pkg/cli"
+        "helm.sh/helm/v3/pkg/getter"
+        "helm.sh/helm/v3/pkg/repo"
+)
+
+var settings = cli.New()
+
+func NewHelmInstaller() (*HelmInstaller, error) <span class="cov0" title="0">{
+        return &amp;HelmInstaller{}, nil
+}</span>
+
+type HelmInstaller struct {
+        KubeConfig string
+}
+
+func (h *HelmInstaller) Install(options *InstallOptions) error <span class="cov0" title="0">{
+        if options == nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("install options cannot be nil")
+        }</span>
+
+        <span class="cov0" title="0">ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+        defer cancel()
+        actionConfig, err := h.createHelmActionConfig(options.Namespace)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create helm action config: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">histClient := action.NewHistory(actionConfig)
+        histClient.Max = 1
+        _, err = histClient.Run(options.ApplicationName)
+
+        if err == nil </span><span class="cov0" title="0">{
+                // Release exists, upgrade it
+                upgrade := action.NewUpgrade(actionConfig)
+                upgrade.Namespace = options.Namespace
+
+                chart, err := h.downloadAndLoadChart(options)
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to download and load chart: %w", err)
+                }</span>
+
+                <span class="cov0" title="0">rel, err := upgrade.RunWithContext(ctx, options.ApplicationName, chart, options.Values)
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Error upgrading chart: %v\n", err)
+                        return fmt.Errorf("failed to upgrade chart: %w", err)
+                }</span>
+
+                <span class="cov0" title="0">if rel == nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to get release information")
+                }</span>
+        } else<span class="cov0" title="0"> {
+                // Release doesn't exist, install it
+                install := action.NewInstall(actionConfig)
+                install.Namespace = options.Namespace
+                install.ReleaseName = options.ApplicationName
+                install.CreateNamespace = true
+
+                chart, err := h.downloadAndLoadChart(options)
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to download and load chart: %w", err)
+                }</span>
+
+                <span class="cov0" title="0">rel, err := install.RunWithContext(ctx, chart, options.Values)
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Error installing chart: %v\n", err)
+                        return fmt.Errorf("failed to install chart: %w", err)
+                }</span>
+
+                <span class="cov0" title="0">if rel == nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to get release information")
+                }</span>
+        }
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (h *HelmInstaller) UnInstall(options *InstallOptions) error <span class="cov0" title="0">{
+        if options == nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("install options cannot be nil")
+        }</span>
+
+        <span class="cov0" title="0">actionConfig, err := h.createHelmActionConfig(options.Namespace)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create helm action config: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">uninstall := action.NewUninstall(actionConfig)
+        uninstall.Timeout = 5 * time.Minute
+        uninstall.Wait = true
+
+        _, err = uninstall.Run(options.ApplicationName)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Error uninstalling chart: %v\n", err)
+                return fmt.Errorf("failed to uninstall chart: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (h *HelmInstaller) createHelmActionConfig(namespace string) (*action.Configuration, error) <span class="cov0" title="0">{
+        tmpPath := filepath.Join(os.TempDir(), fmt.Sprintf("kubeconfig-%d", time.Now().UnixNano()))
+
+        if err := os.WriteFile(tmpPath, []byte(h.KubeConfig), 0o600); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to write kubeconfig to temp file: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">settings.KubeConfig = tmpPath
+        actionConfig := new(action.Configuration)
+        if err := actionConfig.Init(settings.RESTClientGetter(), namespace, os.Getenv("HELM_DRIVER"), log.Printf); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to initialize helm action config: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return actionConfig, nil</span>
+}
+
+func (h *HelmInstaller) downloadAndLoadChart(options *InstallOptions) (*chart.Chart, error) <span class="cov0" title="0">{
+        chartPathOptions := action.ChartPathOptions{
+                RepoURL:            options.RepoURL,
+                Version:            options.Version,
+                PassCredentialsAll: true,
+        }
+
+        if err := h.addHelmRepo(options); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to add helm repository: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">chartPath, err := chartPathOptions.LocateChart(*options.ChartName, settings)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to locate chart %s: %w", *options.ChartName, err)
+        }</span>
+
+        <span class="cov0" title="0">log.Printf("Chart found at: %s\n", chartPath)
+
+        loadedChart, err := loader.Load(chartPath)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to load chart from %s: %w", chartPath, err)
+        }</span>
+
+        <span class="cov0" title="0">if loadedChart.Metadata.Name == "" </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("chart has no name")
+        }</span>
+
+        <span class="cov0" title="0">if loadedChart.Metadata.Version == "" </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("chart has no version")
+        }</span>
+
+        <span class="cov0" title="0">log.Printf("Successfully loaded chart: %s version %s\n", loadedChart.Metadata.Name, loadedChart.Metadata.Version)
+
+        return loadedChart, nil</span>
+}
+
+func (h *HelmInstaller) addHelmRepo(options *InstallOptions) error <span class="cov0" title="0">{
+        entry := repo.Entry{
+                Name: options.RepoName,
+                URL:  options.RepoURL,
+        }
+
+        r, err := repo.NewChartRepository(&amp;entry, getter.All(settings))
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create chart repository: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">indexFilePath, err := r.DownloadIndexFile()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to download repository index: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">_, err = repo.LoadIndexFile(indexFilePath)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to load repository index: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
