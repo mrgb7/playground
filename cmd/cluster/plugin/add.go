@@ -34,6 +34,9 @@ var addCmd = &cobra.Command{
 			&plugins.Argocd{
 				KubeConfig: c.KubeConfig,
 			},
+			&plugins.CertManager{
+				KubeConfig: c.KubeConfig,
+			},
 			lb,
 		}
 

@@ -23,6 +23,9 @@ var removeCmd = &cobra.Command{
 			&plugins.Argocd{
 				KubeConfig: c.KubeConfig,
 			},
+			&plugins.CertManager{
+				KubeConfig: c.KubeConfig,
+			},
 		}
 
 		for _, plugin := range plugins {
