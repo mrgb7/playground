@@ -58,6 +58,8 @@ func (m *MultipassClient) IsMultipassInstalled() bool {
 func (m *MultipassClient) CreateCluster(clusterName string, nodeCount int, wg *sync.WaitGroup) error {
 	masterName := fmt.Sprintf("%s-master", clusterName)
 	errChan := make(chan error, nodeCount)
+	
+	// Create master node
 	wg.Add(1)
 	go func(name string) {
 		defer wg.Done()
@@ -69,6 +71,8 @@ func (m *MultipassClient) CreateCluster(clusterName string, nodeCount int, wg *s
 		}
 		logger.Debugln("Master node %s created successfully", name)
 	}(masterName)
+	
+	// Create worker nodes
 	for i := 1; i < nodeCount; i++ {
 		wg.Add(1)
 		go func(workerIndex int) {
@@ -83,19 +87,35 @@ func (m *MultipassClient) CreateCluster(clusterName string, nodeCount int, wg *s
 			logger.Debugln("Worker node %s created successfully", nodeName)
 		}(i)
 	}
+	
+	// Wait for all nodes to be created and close error channel
 	go func() {
 		wg.Wait()
 		close(errChan)
 	}()
+	
+	// Check for any creation errors
+	var creationErrors []error
 	for err := range errChan {
 		if err != nil {
-			logger.Errorln("Error during cluster creation for '%s', attempting cleanup.", clusterName)
-			if cleanupErr := m.DeleteCluster(clusterName, wg); cleanupErr != nil {
-				logger.Errorln("Failed to cleanup cluster %s during error recovery: %v", clusterName, cleanupErr)
-			}
-			return err
+			creationErrors = append(creationErrors, err)
 		}
 	}
+	
+	// If there were errors, attempt cleanup and return the first error
+	if len(creationErrors) > 0 {
+		logger.Errorln("Error during cluster creation for '%s', attempting cleanup.", clusterName)
+		
+		// Create a new WaitGroup for cleanup operations
+		var cleanupWG sync.WaitGroup
+		if cleanupErr := m.DeleteCluster(clusterName, &cleanupWG); cleanupErr != nil {
+			logger.Errorln("Failed to cleanup cluster %s during error recovery: %v", clusterName, cleanupErr)
+		}
+		
+		// Return the first creation error
+		return creationErrors[0]
+	}
+	
 	logger.Debugln("Cluster %s created successfully with %d total instances.", clusterName, nodeCount)
 	return nil
 }
@@ -116,16 +136,49 @@ func (m *MultipassClient) DeleteCluster(clusterName string, wg *sync.WaitGroup) 
 		logger.Errorln(errMsg)
 		return fmt.Errorf("failed to parse JSON output: %s - %w", err, err)
 	}
+	
+	// Collect instances to delete first
+	var instancesToDelete []string
 	for _, instance := range list.List {
-		wg.Add(1)
 		if strings.HasPrefix(instance.Name, clusterName) {
-			go func(name string) {
-				m.DeleteNode(name)
-				wg.Done()
-			}(instance.Name)
+			instancesToDelete = append(instancesToDelete, instance.Name)
 		}
 	}
-	wg.Wait()
+	
+	// Create error channel for collecting deletion errors
+	errChan := make(chan error, len(instancesToDelete))
+	
+	// Start deletion goroutines
+	for _, instanceName := range instancesToDelete {
+		wg.Add(1)
+		go func(name string) {
+			defer wg.Done()
+			if err := m.DeleteNode(name); err != nil {
+				errChan <- fmt.Errorf("failed to delete node %s: %w", name, err)
+				return
+			}
+			logger.Debugf("Successfully deleted node: %s", name)
+		}(instanceName)
+	}
+	
+	// Wait for all deletions to complete
+	go func() {
+		wg.Wait()
+		close(errChan)
+	}()
+	
+	// Collect any errors
+	var errors []error
+	for err := range errChan {
+		if err != nil {
+			errors = append(errors, err)
+		}
+	}
+	
+	// Return combined errors if any occurred
+	if len(errors) > 0 {
+		return errors.Join(errors...)
+	}
 
 	return nil
 }
