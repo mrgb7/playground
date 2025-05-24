@@ -13,7 +13,6 @@ var removeCmd = &cobra.Command{
 	Short: "remove plugin",
 	Long:  `Remove plugin from the cluster`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Get the name of the plugin from the flags
 		c := types.Cluster{
 			Name: cName,
 		}

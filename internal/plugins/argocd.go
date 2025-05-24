@@ -28,9 +28,8 @@ const (
 	ArgoRepoName        = "argo"
 	ArgocdValuesFileURL = "https://raw.githubusercontent.com/mrgb7/core-infrastructure/refs/heads/main/argocd/argocd-values-local.yaml"
 	
-	// HTTP client configuration
 	HTTPTimeoutSeconds = 30
-	MaxResponseSize    = 10 * 1024 * 1024 // 10MB max response size
+	MaxResponseSize    = 10 * 1024 * 1024
 )
 
 func (a *Argocd) GetName() string {
@@ -79,12 +78,10 @@ func (a *Argocd) GetInstaller() (installer.Installer, error) {
 }
 
 func (a *Argocd) getValuesContent() (map[string]interface{}, error) {
-	// Validate URL
 	if _, err := url.Parse(ArgocdValuesFileURL); err != nil {
 		return nil, fmt.Errorf("invalid values file URL: %w", err)
 	}
 	
-	// Create HTTP client with timeout
 	httpClient := &http.Client{
 		Timeout: HTTPTimeoutSeconds * time.Second,
 	}
@@ -107,14 +104,12 @@ func (a *Argocd) getValuesContent() (map[string]interface{}, error) {
 		return nil, fmt.Errorf("failed to fetch values file: HTTP %d %s", resp.StatusCode, resp.Status)
 	}
 	
-	// Limit response size to prevent DoS
 	limitedReader := io.LimitReader(resp.Body, MaxResponseSize)
 	content, err := io.ReadAll(limitedReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 	
-	// Log content hash for integrity verification (optional)
 	hash := sha256.Sum256(content)
 	logger.Debugf("ArgoCD values file SHA256: %x", hash)
 	

@@ -29,17 +29,15 @@ var cleanCmd = &cobra.Command{
 			clusterName := args[0]
 			logger.Infoln("Cleaning up resources for cluster '%s'...", clusterName)
 
-			// Delete the cluster
 			if err := client.DeleteCluster(clusterName, &wg); err != nil {
 				logger.Errorln("Failed to clean up cluster: %v", err)
 				return
 			}
-			wg.Wait() // Wait for all goroutines to complete
+			wg.Wait()
 
 			logger.Successln("Successfully cleaned up cluster '%s'", clusterName)
 		}
 
-		// If purge flag is set or no cluster name was provided, purge all deleted instances
 		if cPurge || len(args) == 0 {
 			logger.Infoln("Purging all deleted instances...")
 			if err := client.PurgeNodes(); err != nil {
