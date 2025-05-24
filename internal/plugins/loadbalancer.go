@@ -61,11 +61,20 @@ func (l *LoadBalancer) GetInstaller() (installer.Installer, error) {
 }
 
 func (l *LoadBalancer) Install(ensure ...bool) error {
-	i, err := l.GetInstaller()
+	inst, err := NewInstaller(l, l.KubeConfig, "")
 	if err != nil {
-		return fmt.Errorf("failed to get installer: %w", err)
+		return fmt.Errorf("failed to get installer from factory: %w", err)
 	}
-	err = i.Install(&installer.InstallOptions{})
+
+	_, isArgo := inst.(*installer.ArgoInstaller)
+	
+	if isArgo {
+		options := NewArgoOptions(l)
+		err = inst.Install(options)
+	} else {
+		err = inst.Install(&installer.InstallOptions{})
+	}
+	
 	if err != nil {
 		return fmt.Errorf("failed to install loadbalancer: %w", err)
 	}
@@ -86,11 +95,20 @@ func (l *LoadBalancer) Install(ensure ...bool) error {
 
 func (l *LoadBalancer) Uninstall(ensure ...bool) error {
 	fmt.Println("Uninstalling loadbalancer")
-	i, err := l.GetInstaller()
+	inst, err := NewInstaller(l, l.KubeConfig, "")
 	if err != nil {
-		return fmt.Errorf("failed to get installer: %w", err)
+		return fmt.Errorf("failed to get installer from factory: %w", err)
 	}
-	err = i.UnInstall(&installer.InstallOptions{})
+
+	_, isArgo := inst.(*installer.ArgoInstaller)
+	
+	if isArgo {
+		options := NewArgoOptions(l)
+		err = inst.UnInstall(options)
+	} else {
+		err = inst.UnInstall(&installer.InstallOptions{})
+	}
+	
 	if err != nil {
 		return fmt.Errorf("failed to uninstall loadbalancer: %w", err)
 	}

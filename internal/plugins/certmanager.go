@@ -37,11 +37,20 @@ func (c *CertManager) GetName() string {
 }
 
 func (c *CertManager) Install(ensure ...bool) error {
-	i, err := c.GetInstaller()
+	inst, err := NewInstaller(c, c.KubeConfig, "")
 	if err != nil {
-		return fmt.Errorf("failed to get installer: %w", err)
+		return fmt.Errorf("failed to get installer from factory: %w", err)
 	}
-	err = i.Install(&installer.InstallOptions{})
+
+	_, isArgo := inst.(*installer.ArgoInstaller)
+	
+	if isArgo {
+		options := NewArgoOptions(c)
+		err = inst.Install(options)
+	} else {
+		err = inst.Install(&installer.InstallOptions{})
+	}
+	
 	if err != nil {
 		return fmt.Errorf("failed to install cert-manager: %w", err)
 	}
@@ -49,11 +58,20 @@ func (c *CertManager) Install(ensure ...bool) error {
 }
 
 func (c *CertManager) Uninstall(ensure ...bool) error {
-	i, err := c.GetInstaller()
+	inst, err := NewInstaller(c, c.KubeConfig, "")
 	if err != nil {
-		return fmt.Errorf("failed to get installer: %w", err)
+		return fmt.Errorf("failed to get installer from factory: %w", err)
 	}
-	err = i.UnInstall(&installer.InstallOptions{})
+
+	_, isArgo := inst.(*installer.ArgoInstaller)
+	
+	if isArgo {
+		options := NewArgoOptions(c)
+		err = inst.UnInstall(options)
+	} else {
+		err = inst.UnInstall(&installer.InstallOptions{})
+	}
+	
 	if err != nil {
 		return fmt.Errorf("failed to uninstall cert-manager: %w", err)
 	}

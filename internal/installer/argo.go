@@ -116,10 +116,12 @@ func (a *ArgoInstaller) Install(options *InstallOptions) error {
 	logger.Info("Starting ArgoCD application installation...\n")
 	
 	if err := a.connectToArgoCD(); err != nil {
+		logger.Error("failed to connect to ArgoCD: %v", err)
 		return fmt.Errorf("failed to connect to ArgoCD: %w", err)
 	}
 
 	if err := a.createApplication(options); err != nil {
+		logger.Error("failed to create ArgoCD application: %v", err)
 		return fmt.Errorf("failed to create ArgoCD application: %w", err)
 	}
 
