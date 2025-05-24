@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mrgb7/playground/internal/installer"
 	"github.com/mrgb7/playground/internal/k8s"
 	"github.com/mrgb7/playground/pkg/logger"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,27 +44,11 @@ func NewLoadBalancer(kubeConfig string, masterClusterIP string) (*LoadBalancer, 
 }
 
 func (l *LoadBalancer) GetName() string {
-	return "loadBalancer"
+	return "load-balancer"
 }
 
-func (l *LoadBalancer) GetInstaller() (installer.Installer, error) {
-	return &installer.HelmInstaller{
-		ReleaseName:  releaseName,
-		ChartName:    chartName,
-		RepoUrl:      repoUrl,
-		RepoName:     repoName,
-		Namespace:    namespace,
-		ChartVersion: chartVersion,
-		KubeConfig:   l.KubeConfig,
-	}, nil
-}
-
-func (l *LoadBalancer) Install(ensure ...bool) error {
-	i, err := l.GetInstaller()
-	if err != nil {
-		return fmt.Errorf("failed to get installer: %w", err)
-	}
-	err = i.Install(&installer.InstallOptions{})
+func (l *LoadBalancer) Install(kubeConfig, clusterName string, ensure ...bool) error {
+	err := l.UnifiedInstall(kubeConfig, clusterName, ensure...)
 	if err != nil {
 		return fmt.Errorf("failed to install loadbalancer: %w", err)
 	}
@@ -84,18 +67,9 @@ func (l *LoadBalancer) Install(ensure ...bool) error {
 	return nil
 }
 
-func (l *LoadBalancer) Uninstall(ensure ...bool) error {
-	fmt.Println("Uninstalling loadbalancer")
-	i, err := l.GetInstaller()
-	if err != nil {
-		return fmt.Errorf("failed to get installer: %w", err)
-	}
-	err = i.UnInstall(&installer.InstallOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to uninstall loadbalancer: %w", err)
-	}
-
-	return nil
+func (l *LoadBalancer) Uninstall(kubeConfig, clusterName string, ensure ...bool) error {
+	logger.Infoln("Uninstalling loadbalancer")
+	return l.UnifiedUninstall(kubeConfig, clusterName, ensure...)
 }
 
 func (l *LoadBalancer) Status() string {
@@ -103,7 +77,7 @@ func (l *LoadBalancer) Status() string {
 	defer cancel()
 	ns, err := l.k8sClient.GetNameSpace(namespace, ctx)
 	if ns == "" || err != nil {
-		logger.Error("failed to get metallb namespace: %v", err)
+		logger.Errorln("failed to get metallb namespace: %v", err)
 		return "Not installed"
 	}
 
@@ -113,7 +87,7 @@ func (l *LoadBalancer) Status() string {
 func (l *LoadBalancer) addl2IpPool() error {
 	ipRange, err := l.getIPRange()
 	if err != nil {
-		logger.Error("failed to get ip range: %v", err)
+		logger.Errorln("failed to get ip range: %v", err)
 		return fmt.Errorf("failed to get ip range: %w", err)
 	}
 	ipPool := &unstructured.Unstructured{
@@ -143,7 +117,7 @@ func (l *LoadBalancer) addl2IpPool() error {
 		Namespace(namespace).
 		Create(context.TODO(), ipPool, metav1.CreateOptions{})
 	if err != nil {
-		logger.Error("failed to create ip address pool: %v", err)
+		logger.Errorln("failed to create ip address pool: %v", err)
 		return fmt.Errorf("failed to create ip address pool: %w", err)
 	}
 	return nil
@@ -179,7 +153,7 @@ func (l *LoadBalancer) addl2Adv() error {
 		Namespace(namespace).
 		Create(context.TODO(), l2Adv, metav1.CreateOptions{})
 	if err != nil {
-		logger.Error("failed to create l2 advertisement: %v", err)
+		logger.Errorln("failed to create l2 advertisement: %v", err)
 		return fmt.Errorf("failed to create l2 advertisement: %w", err)
 	}
 	return nil
@@ -197,4 +171,28 @@ func (l *LoadBalancer) getIPRange() (string, error) {
 	start := fmt.Sprintf("%s.100", strings.Join(dhcp, "."))
 	end := fmt.Sprintf("%s.200", strings.Join(dhcp, "."))
 	return fmt.Sprintf("%s-%s", start, end), nil
+}
+
+func (l *LoadBalancer) GetNamespace() string {
+	return namespace
+}
+
+func (l *LoadBalancer) GetVersion() string {
+	return chartVersion
+}
+
+func (l *LoadBalancer) GetChartName() string {
+	return chartName
+}
+
+func (l *LoadBalancer) GetRepository() string {
+	return repoUrl
+}
+
+func (l *LoadBalancer) GetChartValues() map[string]interface{} {
+	return make(map[string]interface{})
+}
+
+func (l *LoadBalancer) GetRepoName() string {
+	return repoName
 }

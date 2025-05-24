@@ -26,7 +26,7 @@ var addCmd = &cobra.Command{
 
 		pluginsList, err := plugins.CreatePluginsList(c.KubeConfig, ip)
 		if err != nil {
-			logger.Error("Failed to create plugins list: %v", err)
+			logger.Errorln("Failed to create plugins list: %v", err)
 			return
 		}
 
@@ -35,35 +35,21 @@ var addCmd = &cobra.Command{
 			if plugin.GetName() == pName {
 				found = true
 				
-				if factory, ok := plugin.(plugins.Factory); ok {
-					err := factory.FactoryInstall(c.KubeConfig, c.Name)
-					if err != nil {
-						err = plugin.Install()
-						if err != nil {
-							logger.Error("Error installing plugin: %v", err)
-						} else {
-							logger.Info("Successfully installed %s", pName)
-						}
-					} else {
-						logger.Info("Successfully installed %s", pName)
-					}
+				err := plugin.Install(c.KubeConfig, c.Name)
+				if err != nil {
+					logger.Errorln("Error installing plugin: %v", err)
 				} else {
-					err := plugin.Install()
-					if err != nil {
-						logger.Error("Error installing plugin: %v", err)
-					} else {
-						logger.Info("Successfully installed %s", pName)
-					}
+					logger.Successln("Successfully installed %s", pName)
 				}
 				break
 			}
 		}
 		
 		if !found {
-			logger.Error("Plugin %s not found", pName)
-			logger.Info("Available plugins:")
+			logger.Errorln("Plugin %s not found", pName)
+			logger.Infoln("Available plugins:")
 			for _, plugin := range pluginsList {
-				logger.Info("  - %s", plugin.GetName())
+				logger.Infoln("  - %s", plugin.GetName())
 			}
 		}
 	},

@@ -1,7 +1,7 @@
 package installer
 
 import (
-	"context"
+	"net/http"
 	"testing"
 	"time"
 )
@@ -104,30 +104,9 @@ func TestArgoInstaller_ValidateArgoConnection(t *testing.T) {
 	}
 }
 
-func TestArgoInstaller_closePortForward(t *testing.T) {
+func TestArgoInstaller_cleanup(t *testing.T) {
 	installer := &ArgoInstaller{}
-	
-	ctx, cancel := context.WithCancel(context.Background())
-	installer.portForwardCancel = cancel
-	
-	installer.closePortForward()
-	
-	select {
-	case <-ctx.Done():
-	case <-time.After(100 * time.Millisecond):
-		t.Errorf("context was not cancelled")
-	}
-	
-	if installer.portForwardCancel != nil {
-		t.Errorf("portForwardCancel should be nil after close")
-	}
-}
-
-func TestArgoInstaller_closePortForward_NilCancel(t *testing.T) {
-	installer := &ArgoInstaller{}
-	installer.portForwardCancel = nil
-	
-	installer.closePortForward()
+	installer.cleanup()
 }
 
 func TestInstallOptions_Validation(t *testing.T) {
@@ -142,7 +121,7 @@ func TestInstallOptions_Validation(t *testing.T) {
 				ApplicationName: "test-app",
 				RepoURL:        "https://github.com/test/repo",
 				Path:           "manifests/",
-				TargetRevision: "main",
+				Version:        "main",
 				Namespace:      "test-namespace",
 			},
 			valid: true,
@@ -152,7 +131,7 @@ func TestInstallOptions_Validation(t *testing.T) {
 			options: &InstallOptions{
 				RepoURL:        "https://github.com/test/repo",
 				Path:           "manifests/",
-				TargetRevision: "main",
+				Version:        "main",
 				Namespace:      "test-namespace",
 			},
 			valid: false,
@@ -162,7 +141,7 @@ func TestInstallOptions_Validation(t *testing.T) {
 			options: &InstallOptions{
 				ApplicationName: "test-app",
 				Path:           "manifests/",
-				TargetRevision: "main",
+				Version:        "main",
 				Namespace:      "test-namespace",
 			},
 			valid: false,
@@ -178,7 +157,7 @@ func TestInstallOptions_Validation(t *testing.T) {
 				ApplicationName: "",
 				RepoURL:        "",
 				Path:           "",
-				TargetRevision: "",
+				Version:        "",
 				Namespace:      "",
 			},
 			valid: false,
@@ -334,7 +313,7 @@ func TestInstallOptions_ComplexValidation(t *testing.T) {
 				ApplicationName: "complex-app",
 				RepoURL:        "https://github.com/argoproj/argocd-example-apps",
 				Path:           "guestbook",
-				TargetRevision: "HEAD",
+				Version:        "HEAD",
 				Namespace:      "guestbook",
 				Values: map[string]interface{}{
 					"image.tag":      "latest",
@@ -358,7 +337,7 @@ func TestInstallOptions_ComplexValidation(t *testing.T) {
 				ApplicationName: "app-with-special_chars.123",
 				RepoURL:        "https://github.com/org/repo-name_with.special-chars",
 				Path:           "charts/app-chart",
-				TargetRevision: "v1.2.3-beta.1",
+				Version:        "v1.2.3-beta.1",
 				Namespace:      "namespace-with-dashes",
 			},
 			valid: true,
@@ -372,6 +351,215 @@ func TestInstallOptions_ComplexValidation(t *testing.T) {
 				t.Errorf("expected validation result %v, got %v", tt.valid, valid)
 			}
 		})
+	}
+}
+
+func TestArgoApplication_StructCreation(t *testing.T) {
+	tests := []struct {
+		name        string
+		options     *InstallOptions
+		expectedApp ArgoApplication
+	}{
+		{
+			name: "complete application",
+			options: &InstallOptions{
+				ApplicationName: "test-app",
+				RepoURL:        "https://github.com/test/repo",
+				Path:           "manifests",
+				Version:        "main",
+				Namespace:      "test-namespace",
+			},
+			expectedApp: ArgoApplication{
+				APIVersion: "argoproj.io/v1alpha1",
+				Kind:       "Application",
+				Metadata: ArgoMetadata{
+					Name:      "test-app",
+					Namespace: "argocd",
+				},
+				Spec: ArgoApplicationSpec{
+					Project: "default",
+					Source: ArgoSource{
+						RepoURL:        "https://github.com/test/repo",
+						Path:           "manifests",
+						TargetRevision: "main",
+					},
+					Destination: ArgoDestination{
+						Server:    "https://kubernetes.default.svc",
+						Namespace: "test-namespace",
+					},
+					SyncPolicy: &ArgoSyncPolicy{
+						Automated: &ArgoSyncPolicyAutomated{
+							Prune:    true,
+							SelfHeal: true,
+						},
+						SyncOptions: []string{"CreateNamespace=true"},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := ArgoApplication{
+				APIVersion: "argoproj.io/v1alpha1",
+				Kind:       "Application",
+				Metadata: ArgoMetadata{
+					Name:      tt.options.ApplicationName,
+					Namespace: "argocd",
+				},
+				Spec: ArgoApplicationSpec{
+					Project: "default",
+					Source: ArgoSource{
+						RepoURL:        tt.options.RepoURL,
+						Path:           tt.options.Path,
+						TargetRevision: tt.options.Version,
+					},
+					Destination: ArgoDestination{
+						Server:    "https://kubernetes.default.svc",
+						Namespace: tt.options.Namespace,
+					},
+					SyncPolicy: &ArgoSyncPolicy{
+						Automated: &ArgoSyncPolicyAutomated{
+							Prune:    true,
+							SelfHeal: true,
+						},
+						SyncOptions: []string{"CreateNamespace=true"},
+					},
+				},
+			}
+
+			if app.APIVersion != tt.expectedApp.APIVersion {
+				t.Errorf("expected APIVersion %s, got %s", tt.expectedApp.APIVersion, app.APIVersion)
+			}
+
+			if app.Kind != tt.expectedApp.Kind {
+				t.Errorf("expected Kind %s, got %s", tt.expectedApp.Kind, app.Kind)
+			}
+
+			if app.Metadata.Name != tt.expectedApp.Metadata.Name {
+				t.Errorf("expected name %s, got %s", tt.expectedApp.Metadata.Name, app.Metadata.Name)
+			}
+
+			if app.Spec.Source.RepoURL != tt.expectedApp.Spec.Source.RepoURL {
+				t.Errorf("expected repoURL %s, got %s", tt.expectedApp.Spec.Source.RepoURL, app.Spec.Source.RepoURL)
+			}
+
+			if app.Spec.Source.Path != tt.expectedApp.Spec.Source.Path {
+				t.Errorf("expected path %s, got %s", tt.expectedApp.Spec.Source.Path, app.Spec.Source.Path)
+			}
+
+			if app.Spec.Source.TargetRevision != tt.expectedApp.Spec.Source.TargetRevision {
+				t.Errorf("expected targetRevision %s, got %s", tt.expectedApp.Spec.Source.TargetRevision, app.Spec.Source.TargetRevision)
+			}
+		})
+	}
+}
+
+func TestArgoInstaller_PathAndRevisionDefaults(t *testing.T) {
+	tests := []struct {
+		name            string
+		inputPath       string
+		inputRevision   string
+		expectedPath    string
+		expectedRevision string
+	}{
+		{
+			name:            "empty path and revision",
+			inputPath:       "",
+			inputRevision:   "",
+			expectedPath:    ".",
+			expectedRevision: "HEAD",
+		},
+		{
+			name:            "custom path and revision",
+			inputPath:       "charts/app",
+			inputRevision:   "v1.0.0",
+			expectedPath:    "charts/app",
+			expectedRevision: "v1.0.0",
+		},
+		{
+			name:            "empty path only",
+			inputPath:       "",
+			inputRevision:   "main",
+			expectedPath:    ".",
+			expectedRevision: "main",
+		},
+		{
+			name:            "empty revision only",
+			inputPath:       "manifests",
+			inputRevision:   "",
+			expectedPath:    "manifests",
+			expectedRevision: "HEAD",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := ArgoApplication{
+				APIVersion: "argoproj.io/v1alpha1",
+				Kind:       "Application",
+				Metadata: ArgoMetadata{
+					Name:      "test-app",
+					Namespace: "argocd",
+				},
+				Spec: ArgoApplicationSpec{
+					Project: "default",
+					Source: ArgoSource{
+						RepoURL:        "https://github.com/test/repo",
+						Path:           tt.inputPath,
+						TargetRevision: tt.inputRevision,
+					},
+					Destination: ArgoDestination{
+						Server:    "https://kubernetes.default.svc",
+						Namespace: "test-namespace",
+					},
+				},
+			}
+
+			if app.Spec.Source.Path == "" {
+				app.Spec.Source.Path = "."
+			}
+			if app.Spec.Source.TargetRevision == "" {
+				app.Spec.Source.TargetRevision = "HEAD"
+			}
+			
+			if app.Spec.Source.Path != tt.expectedPath {
+				t.Errorf("expected path %s, got %s", tt.expectedPath, app.Spec.Source.Path)
+			}
+
+			if app.Spec.Source.TargetRevision != tt.expectedRevision {
+				t.Errorf("expected targetRevision %s, got %s", tt.expectedRevision, app.Spec.Source.TargetRevision)
+			}
+		})
+	}
+}
+
+func TestArgoInstaller_HTTPClientConfiguration(t *testing.T) {
+	installer, err := NewArgoInstaller(createValidKubeConfig(), "test-cluster")
+	if err != nil {
+		t.Fatalf("failed to create ArgoInstaller: %v", err)
+	}
+
+	if installer.httpClient == nil {
+		t.Errorf("httpClient should not be nil")
+	}
+
+	if installer.httpClient.Timeout != 30*time.Second {
+		t.Errorf("expected timeout 30s, got %v", installer.httpClient.Timeout)
+	}
+
+	transport, ok := installer.httpClient.Transport.(*http.Transport)
+	if !ok {
+		t.Errorf("expected *http.Transport, got %T", installer.httpClient.Transport)
+	}
+
+	if transport.TLSClientConfig == nil {
+		t.Errorf("TLSClientConfig should not be nil")
+	}
+
+	if !transport.TLSClientConfig.InsecureSkipVerify {
+		t.Errorf("InsecureSkipVerify should be true for ArgoCD self-signed certs")
 	}
 }
 

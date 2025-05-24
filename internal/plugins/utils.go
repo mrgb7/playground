@@ -11,14 +11,14 @@ import (
 )
 
 const (
-	ArgocdInstallNamespace = "argocd"
+	ArgocdInstallNamespace    = "argocd"
 	ArgocdServerLabelSelector = "app.kubernetes.io/name=argocd-server"
 )
 
 func IsArgoCDRunning(kubeConfig string) bool {
 	client, err := k8s.NewK8sClient(kubeConfig)
 	if err != nil {
-		logger.Debug("Failed to create k8s client: %v", err)
+		logger.Debugln("Failed to create k8s client: %v", err)
 		return false
 	}
 
@@ -27,7 +27,7 @@ func IsArgoCDRunning(kubeConfig string) bool {
 
 	namespace, err := client.GetNameSpace(ArgocdInstallNamespace, ctx)
 	if err != nil || namespace == "" {
-		logger.Debug("ArgoCD namespace not found: %v", err)
+		logger.Debugln("ArgoCD namespace not found: %v", err)
 		return false
 	}
 
@@ -35,12 +35,12 @@ func IsArgoCDRunning(kubeConfig string) bool {
 		LabelSelector: ArgocdServerLabelSelector,
 	})
 	if err != nil {
-		logger.Debug("Failed to list ArgoCD server pods: %v", err)
+		logger.Debugln("Failed to list ArgoCD server pods: %v", err)
 		return false
 	}
 
 	if len(podList.Items) == 0 {
-		logger.Debug("No ArgoCD server pods found")
+		logger.Debugln("No ArgoCD server pods found")
 		return false
 	}
 
@@ -48,20 +48,20 @@ func IsArgoCDRunning(kubeConfig string) bool {
 		if pod.Status.Phase == "Running" {
 			readyContainers := 0
 			totalContainers := len(pod.Status.ContainerStatuses)
-			
+
 			for _, containerStatus := range pod.Status.ContainerStatuses {
 				if containerStatus.Ready {
 					readyContainers++
 				}
 			}
-			
+
 			if readyContainers == totalContainers && totalContainers > 0 {
 				return true
 			}
 		}
 	}
 
-	logger.Debug("ArgoCD pods are not ready")
+	logger.Debugln("ArgoCD pods are not ready")
 	return false
 }
 
@@ -69,59 +69,11 @@ func NewInstaller(plugin Plugin, kubeConfig, clusterName string) (installer.Inst
 	if IsArgoCDRunning(kubeConfig) {
 		argoInstaller, err := installer.NewArgoInstaller(kubeConfig, clusterName)
 		if err != nil {
-			logger.Warn("Failed to create ArgoCD installer, falling back to Helm: %v", err)
-			return plugin.GetInstaller()
+			logger.Errorln("Failed to create ArgoCD installer: %v", err)
+			return nil, err
 		}
-		
 		return argoInstaller, nil
 	}
 
-	return plugin.GetInstaller()
+	return installer.NewHelmInstaller(kubeConfig)
 }
-
-func NewArgoOptions(plugin Plugin) *installer.InstallOptions {
-	pluginName := plugin.GetName()
-	
-	switch pluginName {
-	case "cert-manager":
-		return &installer.InstallOptions{
-			ApplicationName: "cert-manager-app",
-			RepoURL:        "https://github.com/mrgb7/core-infrastructure",
-			Path:           "cert-manager",
-			TargetRevision: "main",
-			Namespace:      "cert-manager",
-		}
-	case "argocd":
-		return &installer.InstallOptions{
-			ApplicationName: "argocd-app",
-			RepoURL:        "https://github.com/mrgb7/core-infrastructure", 
-			Path:           "argocd",
-			TargetRevision: "main",
-			Namespace:      "argocd",
-		}
-	case "loadBalancer":
-		return &installer.InstallOptions{
-			ApplicationName: "metallb-app",
-			RepoURL:        "https://github.com/mrgb7/core-infrastructure",
-			Path:           "metallb",
-			TargetRevision: "main",
-			Namespace:      "metallb-system",
-		}
-	case "nginx":
-		return &installer.InstallOptions{
-			ApplicationName: "nginx-app",
-			RepoURL:        "https://github.com/mrgb7/core-infrastructure",
-			Path:           "nginx",
-			TargetRevision: "main",
-			Namespace:      "nginx-system",
-		}
-	default:
-		return &installer.InstallOptions{
-			ApplicationName: pluginName + "-app",
-			RepoURL:        "https://github.com/mrgb7/core-infrastructure",
-			Path:           pluginName,
-			TargetRevision: "main",
-			Namespace:      pluginName + "-system",
-		}
-	}
-} 
