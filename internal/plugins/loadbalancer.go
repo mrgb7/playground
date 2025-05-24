@@ -189,7 +189,6 @@ func (l *LoadBalancer) deleteValidationWebhookConfig() error {
 }
 
 func (l *LoadBalancer) getIPRange() (string, error) {
-	// Later on we need to calculate the range based on the master cluster ip and dhcp
 	ipParts := strings.Split(l.MasterClusterIP, ".")
 	dhcp := ipParts[:3]
 	start := fmt.Sprintf("%s.100", strings.Join(dhcp, "."))

@@ -28,17 +28,14 @@ const (
 	GetAccessTokenCmd    = `sudo cat /var/lib/rancher/k3s/server/node-token`
 	K3sCreateWorkerCmd   = `curl -sfL https://get.k3s.io | K3S_URL=https://%s:6443 K3S_TOKEN=%s  sh -`
 	KubeConfigCmd        = `sudo cat /etc/rancher/k3s/k3s.yaml`
-	K3sInstallTimeout    = 300 // 5 minutes timeout for K3S installation
+	K3sInstallTimeout    = 300
 )
 
-// validateClusterName validates the cluster name according to Kubernetes naming conventions
 func validateClusterName(name string) error {
 	if name == "" {
 		return fmt.Errorf("cluster name cannot be empty")
 	}
 	
-	// Kubernetes naming conventions: lowercase alphanumeric characters or '-'
-	// Must start and end with alphanumeric character
 	matched, err := regexp.MatchString(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`, name)
 	if err != nil {
 		return fmt.Errorf("error validating cluster name: %w", err)
@@ -55,7 +52,6 @@ func validateClusterName(name string) error {
 	return nil
 }
 
-// validateClusterSize validates the cluster size parameters
 func validateClusterSize(size int) error {
 	if size < 1 {
 		return fmt.Errorf("cluster size must be at least 1")
@@ -73,7 +69,6 @@ var createCmd = &cobra.Command{
 	Short: "Create a new cluster",
 	Long:  `Create a new cluster with the specified configurations`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Validate inputs
 		if err := validateClusterName(cCreateName); err != nil {
 			logger.Errorf("Invalid cluster name: %v\n", err)
 			return
@@ -91,7 +86,6 @@ var createCmd = &cobra.Command{
 			return
 		}
 
-		// Track worker creation errors
 		type workerError struct {
 			nodeName string
 			err      error
@@ -117,7 +111,7 @@ var createCmd = &cobra.Command{
 			logger.Errorln("Failed to get access token: %v", err)
 			return
 		}
-		accessToken = strings.TrimSpace(accessToken) // Trim whitespace from accessToken
+		accessToken = strings.TrimSpace(accessToken)
 		
 		kubConfig, err := client.ExecuteShell(masterNodeName, KubeConfigCmd)
 		if err != nil || kubConfig == "" {
@@ -131,7 +125,6 @@ var createCmd = &cobra.Command{
 			return
 		}
 		
-		// Create worker nodes with proper error tracking
 		for i := 0; i < cCreateSize-1; i++ {
 			wg.Add(1)
 			go func(i int) {
@@ -157,7 +150,6 @@ var createCmd = &cobra.Command{
 		}
 		wg.Wait()
 
-		// Report worker creation results
 		if len(workerErrors) > 0 {
 			logger.Warnln("Some worker nodes failed to configure properly:")
 			for _, we := range workerErrors {

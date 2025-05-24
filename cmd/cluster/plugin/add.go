@@ -18,7 +18,6 @@ var addCmd = &cobra.Command{
 	Short: "Add a new plugin",
 	Long:  `Add a new plugin to the cluster`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Get the name of the plugin from the flags
 		c := types.Cluster{
 			Name: cName,
 		}

@@ -39,7 +39,6 @@ func (c *Cluster) GetWorkers() []*Node {
 func (c *Cluster) SetKubeConfig() error {
 	masterNodeName := fmt.Sprintf("%s-master", c.Name)
 	cl := multipass.NewMultipassClient()
-	// Get the master node IP
 	masterIP, err := cl.GetNodeIP(masterNodeName)
 	if err != nil {
 		return fmt.Errorf("failed to get master node IP: %w", err)
@@ -48,7 +47,6 @@ func (c *Cluster) SetKubeConfig() error {
 	if err != nil {
 		return fmt.Errorf("failed to get kubeconfig: %w", err)
 	}
-	// Replace the server address in the kubeconfig with the master node masterIP
 	res = strings.ReplaceAll(res, "127.0.0.1", masterIP)
 	c.KubeConfig = res
 	return nil
@@ -57,7 +55,6 @@ func (c *Cluster) SetKubeConfig() error {
 func (c *Cluster) GetMasterIP() string {
 	masterNodeName := fmt.Sprintf("%s-master", c.Name)
 	cl := multipass.NewMultipassClient()
-	// Get the master node IP
 	masterIP, err := cl.GetNodeIP(masterNodeName)
 	if err != nil {
 		return ""
