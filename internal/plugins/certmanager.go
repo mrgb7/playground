@@ -104,3 +104,11 @@ func (c *CertManager) Status() string {
 	}
 	return "cert-manager is running"
 }
+
+func (c *CertManager) FactoryInstall(kubeConfig, clusterName string, ensure ...bool) error {
+	return c.BasePlugin.FactoryInstall(kubeConfig, clusterName, ensure...)
+}
+
+func (c *CertManager) FactoryUninstall(kubeConfig, clusterName string, ensure ...bool) error {
+	return c.BasePlugin.FactoryUninstall(kubeConfig, clusterName, ensure...)
+}

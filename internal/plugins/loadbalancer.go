@@ -198,3 +198,11 @@ func (l *LoadBalancer) getIPRange() (string, error) {
 	end := fmt.Sprintf("%s.200", strings.Join(dhcp, "."))
 	return fmt.Sprintf("%s-%s", start, end), nil
 }
+
+func (l *LoadBalancer) FactoryInstall(kubeConfig, clusterName string, ensure ...bool) error {
+	return l.BasePlugin.FactoryInstall(kubeConfig, clusterName, ensure...)
+}
+
+func (l *LoadBalancer) FactoryUninstall(kubeConfig, clusterName string, ensure ...bool) error {
+	return l.BasePlugin.FactoryUninstall(kubeConfig, clusterName, ensure...)
+}

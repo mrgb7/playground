@@ -145,3 +145,11 @@ func (a *Argocd) Status() string {
 	}
 	return "argocd is running"
 }
+
+func (a *Argocd) FactoryInstall(kubeConfig, clusterName string, ensure ...bool) error {
+	return a.BasePlugin.FactoryInstall(kubeConfig, clusterName, ensure...)
+}
+
+func (a *Argocd) FactoryUninstall(kubeConfig, clusterName string, ensure ...bool) error {
+	return a.BasePlugin.FactoryUninstall(kubeConfig, clusterName, ensure...)
+}

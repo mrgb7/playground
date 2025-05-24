@@ -113,7 +113,7 @@ func (a *ArgoInstaller) Install(options *InstallOptions) error {
 		return fmt.Errorf("install options cannot be nil")
 	}
 	
-	logger.Info("Starting ArgoCD application installation...")
+	logger.Info("Starting ArgoCD application installation...\n")
 	
 	if err := a.connectToArgoCD(); err != nil {
 		return fmt.Errorf("failed to connect to ArgoCD: %w", err)
@@ -132,7 +132,7 @@ func (a *ArgoInstaller) UnInstall(options *InstallOptions) error {
 		return fmt.Errorf("install options cannot be nil")
 	}
 	
-	logger.Info("Starting ArgoCD application uninstallation...")
+	logger.Info("Starting ArgoCD application uninstallation...\n")
 	
 	if err := a.connectToArgoCD(); err != nil {
 		return fmt.Errorf("failed to connect to ArgoCD: %w", err)
