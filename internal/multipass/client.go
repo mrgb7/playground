@@ -266,8 +266,8 @@ func (m *MultipassClient) GetNodeIP(name string) (string, error) {
 	return ip, nil
 }
 
-func (m *MultipassClient) ExecuteShell(name string, command string) (string, error) {
-	return m.ExecuteShellWithTimeout(name, command, 0)
+func (m *MultipassClient) ExcuteShell(name string, command string) (string, error) {
+	return m.ExcuteShellWithTimeout(name, command, 0) // No timeout by default
 }
 
 func (m *MultipassClient) ExecuteShellWithTimeout(name string, command string, timeoutSeconds int, envs ...string) (string, error) {

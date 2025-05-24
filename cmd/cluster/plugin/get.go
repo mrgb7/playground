@@ -10,13 +10,17 @@ var getCmd = &cobra.Command{
 	Short: "Get a plugin",
 	Long:  "Get a plugin for the cluster",
 	Run: func(cmd *cobra.Command, args []string) {
-		for _, plugin := range plugins.List {
-			if len(args) > 0 {
+		if len(args) > 0 {
+			found := false
+			for _, plugin := range plugins.List {
 				if plugin.GetName() == args[0] {
 					println(plugin.GetName())
-				} else {
-					println("Plugin not found", args[0])
+					found = true
+					break
 				}
+			}
+			if !found {
+				println("Plugin not found", args[0])
 			}
 		}
 	},
