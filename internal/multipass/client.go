@@ -36,8 +36,8 @@ type MultiPassListItem struct {
 }
 
 type MultiPassInfo struct {
-	Errors []interface{}              `json:"errors"`
-	Info   map[string]MultiPassNode   `json:"info"`
+	Errors []interface{}            `json:"errors"`
+	Info   map[string]MultiPassNode `json:"info"`
 }
 
 type MultiPassNode struct {
@@ -49,12 +49,12 @@ type MultipassClient struct {
 }
 
 const (
-	DefaultMasterCPUs    = 2
-	DefaultMasterMemory  = "2G"
-	DefaultMasterDisk    = "10G"
-	DefaultWorkerCPUs    = 1
-	DefaultWorkerMemory  = "1G"
-	DefaultWorkerDisk    = "5G"
+	DefaultMasterCPUs   = 2
+	DefaultMasterMemory = "2G"
+	DefaultMasterDisk   = "10G"
+	DefaultWorkerCPUs   = 1
+	DefaultWorkerMemory = "1G"
+	DefaultWorkerDisk   = "5G"
 )
 
 func NewMultipassClient() *MultipassClient {
@@ -72,7 +72,7 @@ func (m *MultipassClient) IsMultipassInstalled() bool {
 func (m *MultipassClient) CreateCluster(clusterName string, nodeCount int, wg *sync.WaitGroup) error {
 	masterName := fmt.Sprintf("%s-master", clusterName)
 	errChan := make(chan error, nodeCount)
-	
+
 	wg.Add(1)
 	go func(name string) {
 		defer wg.Done()
@@ -84,7 +84,7 @@ func (m *MultipassClient) CreateCluster(clusterName string, nodeCount int, wg *s
 		}
 		logger.Debugln("Master node %s created successfully", name)
 	}(masterName)
-	
+
 	for i := 1; i < nodeCount; i++ {
 		wg.Add(1)
 		go func(workerIndex int) {
@@ -99,30 +99,30 @@ func (m *MultipassClient) CreateCluster(clusterName string, nodeCount int, wg *s
 			logger.Debugln("Worker node %s created successfully", nodeName)
 		}(i)
 	}
-	
+
 	go func() {
 		wg.Wait()
 		close(errChan)
 	}()
-	
+
 	var creationErrors []error
 	for err := range errChan {
 		if err != nil {
 			creationErrors = append(creationErrors, err)
 		}
 	}
-	
+
 	if len(creationErrors) > 0 {
 		logger.Errorln("Error during cluster creation for '%s', attempting cleanup.", clusterName)
-		
+
 		var cleanupWG sync.WaitGroup
 		if cleanupErr := m.DeleteCluster(clusterName, &cleanupWG); cleanupErr != nil {
 			logger.Errorln("Failed to cleanup cluster %s during error recovery: %v", clusterName, cleanupErr)
 		}
-		
+
 		return creationErrors[0]
 	}
-	
+
 	logger.Debugln("Cluster %s created successfully with %d total instances.", clusterName, nodeCount)
 	return nil
 }
@@ -139,16 +139,16 @@ func (m *MultipassClient) DeleteCluster(clusterName string, wg *sync.WaitGroup) 
 	if err := json.Unmarshal(stdout.Bytes(), &list); err != nil {
 		return fmt.Errorf("failed to parse JSON output: %w", err)
 	}
-	
+
 	var instancesToDelete []string
 	for _, instance := range list.List {
 		if strings.HasPrefix(instance.Name, clusterName) {
 			instancesToDelete = append(instancesToDelete, instance.Name)
 		}
 	}
-	
+
 	errChan := make(chan error, len(instancesToDelete))
-	
+
 	for _, instanceName := range instancesToDelete {
 		wg.Add(1)
 		go func(name string) {
@@ -160,19 +160,19 @@ func (m *MultipassClient) DeleteCluster(clusterName string, wg *sync.WaitGroup) 
 			logger.Debugf("Successfully deleted node: %s", name)
 		}(instanceName)
 	}
-	
+
 	go func() {
 		wg.Wait()
 		close(errChan)
 	}()
-	
+
 	var errors []error
 	for err := range errChan {
 		if err != nil {
 			errors = append(errors, err)
 		}
 	}
-	
+
 	if len(errors) > 0 {
 		var errMessages []string
 		for _, err := range errors {
@@ -242,21 +242,21 @@ func (m *MultipassClient) GetNodeIP(name string) (string, error) {
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("failed to get IP address for node '%s': %s - %w", name, stderr.String(), err)
 	}
-	
+
 	var data MultiPassInfo
 	if err := json.Unmarshal(stdout.Bytes(), &data); err != nil {
 		return "", fmt.Errorf("failed to parse JSON output: %w", err)
 	}
-	
+
 	nodeInfo, exists := data.Info[name]
 	if !exists {
 		return "", fmt.Errorf("node '%s' not found in multipass info", name)
 	}
-	
+
 	if len(nodeInfo.IPv4) == 0 {
 		return "", fmt.Errorf("no IPv4 addresses found for node '%s'", name)
 	}
-	
+
 	ip := nodeInfo.IPv4[0]
 	return ip, nil
 }

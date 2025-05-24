@@ -36,11 +36,11 @@ func TestIsArgoCDRunning(t *testing.T) {
 
 func TestNewInstaller(t *testing.T) {
 	tests := []struct {
-		name         string
-		kubeConfig   string
-		clusterName  string
-		expectError  bool
-		pluginName   string
+		name        string
+		kubeConfig  string
+		clusterName string
+		expectError bool
+		pluginName  string
 	}{
 		{
 			name:        "invalid kubeconfig",
@@ -156,4 +156,4 @@ users:
   user:
     token: test-token
 `
-} 
+}

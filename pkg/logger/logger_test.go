@@ -10,7 +10,7 @@ func TestLoggerFunctions(t *testing.T) {
 	// Disable color for consistent testing
 	color.NoColor = true
 	defer func() { color.NoColor = false }()
-	
+
 	// Test that functions don't panic when called
 	t.Run("Info", func(t *testing.T) {
 		defer func() {
@@ -20,7 +20,7 @@ func TestLoggerFunctions(t *testing.T) {
 		}()
 		Info("test message %s", "arg")
 	})
-	
+
 	t.Run("Infoln", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -29,7 +29,7 @@ func TestLoggerFunctions(t *testing.T) {
 		}()
 		Infoln("test message %s", "arg")
 	})
-	
+
 	t.Run("Warn", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -38,7 +38,7 @@ func TestLoggerFunctions(t *testing.T) {
 		}()
 		Warn("warning: %s", "test")
 	})
-	
+
 	t.Run("Warnln", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -47,7 +47,7 @@ func TestLoggerFunctions(t *testing.T) {
 		}()
 		Warnln("warning: %s", "test")
 	})
-	
+
 	t.Run("Error", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -56,7 +56,7 @@ func TestLoggerFunctions(t *testing.T) {
 		}()
 		Error("error: %s", "test")
 	})
-	
+
 	t.Run("Errorln", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -65,7 +65,7 @@ func TestLoggerFunctions(t *testing.T) {
 		}()
 		Errorln("error: %s", "test")
 	})
-	
+
 	t.Run("Debug", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -74,7 +74,7 @@ func TestLoggerFunctions(t *testing.T) {
 		}()
 		Debug("debug: %s", "test")
 	})
-	
+
 	t.Run("Debugln", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -83,7 +83,7 @@ func TestLoggerFunctions(t *testing.T) {
 		}()
 		Debugln("debug: %s", "test")
 	})
-	
+
 	t.Run("Success", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -92,7 +92,7 @@ func TestLoggerFunctions(t *testing.T) {
 		}()
 		Success("success: %s", "test")
 	})
-	
+
 	t.Run("Successln", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -101,7 +101,7 @@ func TestLoggerFunctions(t *testing.T) {
 		}()
 		Successln("success: %s", "test")
 	})
-	
+
 	t.Run("Print", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -110,7 +110,7 @@ func TestLoggerFunctions(t *testing.T) {
 		}()
 		Print("plain: %s", "test")
 	})
-	
+
 	t.Run("Println", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -119,4 +119,4 @@ func TestLoggerFunctions(t *testing.T) {
 		}()
 		Println("plain: %s", "test")
 	})
-} 
+}

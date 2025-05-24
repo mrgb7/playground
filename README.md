@@ -1,5 +1,9 @@
 # Playground - K3s Cluster Management Tool
 
+[![GitHub Release](https://img.shields.io/github/release/mrgb7/playground.svg)](https://github.com/mrgb7/playground/releases)
+[![CI](https://github.com/mrgb7/playground/workflows/Pull%20Request/badge.svg)](https://github.com/mrgb7/playground/actions)
+[![Go Report Card](https://goreportcard.com/badge/github.com/mrgb7/playground)](https://goreportcard.com/report/github.com/mrgb7/playground)
+
 A CLI tool for creating and managing K3s clusters using Multipass VMs. This tool simplifies the process of setting up local Kubernetes clusters for development and testing purposes.
 
 ## Features
@@ -13,17 +17,42 @@ A CLI tool for creating and managing K3s clusters using Multipass VMs. This tool
 ## Prerequisites
 
 - [Multipass](https://multipass.run/) installed and available in PATH
-- Go 1.21+ for building from source
+- Go 1.24+ for building from source
 - Sufficient system resources for running VMs
 
 ## Installation
+
+### Pre-built Binaries
+
+Download the latest release for your platform:
+
+```bash
+# Linux AMD64
+curl -L -o playground.tar.gz https://github.com/mrgb7/playground/releases/latest/download/playground-latest-linux-amd64.tar.gz
+tar -xzf playground.tar.gz
+chmod +x playground-linux-amd64
+sudo mv playground-linux-amd64 /usr/local/bin/playground
+
+# macOS Intel
+curl -L -o playground.tar.gz https://github.com/mrgb7/playground/releases/latest/download/playground-latest-darwin-amd64.tar.gz
+tar -xzf playground.tar.gz
+chmod +x playground-darwin-amd64
+sudo mv playground-darwin-amd64 /usr/local/bin/playground
+
+# macOS Apple Silicon
+curl -L -o playground.tar.gz https://github.com/mrgb7/playground/releases/latest/download/playground-latest-darwin-arm64.tar.gz
+tar -xzf playground.tar.gz
+chmod +x playground-darwin-arm64
+sudo mv playground-darwin-arm64 /usr/local/bin/playground
+```
 
 ### From Source
 
 ```bash
 git clone https://github.com/mrgb7/playground.git
 cd playground
-go build -o playground .
+make build
+# Binary will be in bin/playground
 ```
 
 ### Using Go Install
@@ -33,6 +62,16 @@ go install github.com/mrgb7/playground@latest
 ```
 
 ## Usage
+
+### Version Information
+
+```bash
+# Check version
+playground version
+
+# Detailed version info
+playground version --verbose
+```
 
 ### Basic Commands
 
@@ -66,6 +105,82 @@ playground cluster plugin uninstall argocd --cluster my-cluster
 playground cluster plugin list
 ```
 
+## Development
+
+### Setup
+
+```bash
+git clone https://github.com/mrgb7/playground.git
+cd playground
+make dev-setup
+```
+
+### Building
+
+```bash
+# Build for current platform
+make build
+
+# Build for all platforms
+make build-all
+
+# Build release binaries (Linux & macOS)
+make build-release
+```
+
+### Testing
+
+```bash
+# Run tests
+make test
+
+# Run tests with coverage
+make test-coverage
+
+# Run tests with race detection
+make test-race
+```
+
+### Code Quality
+
+```bash
+# Format code
+make fmt
+
+# Lint code
+make lint
+
+# Run all pre-commit checks
+make pre-commit
+```
+
+## CI/CD Pipeline
+
+This project uses GitHub Actions for continuous integration and delivery:
+
+### Pull Request Workflow
+- **Code Formatting**: Ensures `gofmt` compliance
+- **Linting**: Runs `golangci-lint` for code quality
+- **Testing**: Unit tests with race detection and coverage
+- **Security Scanning**: Vulnerability analysis with Gosec
+- **Multi-platform Build**: Validates builds on Linux, macOS, and Windows
+
+### Release Workflow
+- **Semantic Versioning**: Automatic version bumping based on conventional commits
+- **Release Builds**: Binaries for Linux AMD64, macOS Intel, and macOS Apple Silicon
+- **GitHub Releases**: Automated release creation with changelogs
+- **Asset Publishing**: Packaged binaries as downloadable assets
+
+### Conventional Commits
+
+We use [Conventional Commits](https://www.conventionalcommits.org/) for automatic versioning:
+
+- `feat:` - New feature (minor version bump)
+- `fix:` - Bug fix (patch version bump)
+- `feat!:` or `BREAKING CHANGE:` - Breaking change (major version bump)
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+
 ## Architecture
 
 The tool is organized into several packages:
@@ -95,28 +210,6 @@ The tool uses sensible defaults but can be configured through:
 - **K3s Version**: Latest stable
 - **Disabled Components**: servicelb, traefik (to avoid conflicts)
 
-## Development
-
-### Building
-
-```bash
-go build -o playground .
-```
-
-### Running Tests
-
-```bash
-go test ./...
-```
-
-### Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Submit a pull request
-
 ## Security Considerations
 
 - Kubeconfig files are temporarily stored in system temp directory
@@ -138,6 +231,15 @@ Enable debug logging by setting:
 ```bash
 export LOG_LEVEL=debug
 ```
+
+## Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
+
+- Development setup
+- Commit message format
+- Pull request process
+- Release workflow
 
 ## License
 

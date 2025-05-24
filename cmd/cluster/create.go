@@ -50,20 +50,20 @@ func validateClusterName(name string) error {
 	if name == "" {
 		return fmt.Errorf("cluster name cannot be empty")
 	}
-	
+
 	matched, err := regexp.MatchString(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`, name)
 	if err != nil {
 		return fmt.Errorf("error validating cluster name: %w", err)
 	}
-	
+
 	if !matched {
 		return fmt.Errorf("cluster name must start and end with alphanumeric characters and contain only lowercase letters, numbers, and hyphens")
 	}
-	
+
 	if len(name) > MaxClusterNameLength {
 		return fmt.Errorf("cluster name must be %d characters or less", MaxClusterNameLength)
 	}
-	
+
 	return nil
 }
 
@@ -71,11 +71,11 @@ func validateClusterSize(size int) error {
 	if size < MinClusterSize {
 		return fmt.Errorf("cluster size must be at least %d", MinClusterSize)
 	}
-	
+
 	if size > MaxClusterSize {
 		return fmt.Errorf("cluster size cannot exceed %d nodes", MaxClusterSize)
 	}
-	
+
 	return nil
 }
 
@@ -89,7 +89,7 @@ var createCmd = &cobra.Command{
 			Size:               cCreateSize,
 			WithCoreComponents: withCoreComponents,
 		}
-		
+
 		if err := createCluster(config); err != nil {
 			logger.Errorln("Failed to create cluster: %v", err)
 			return
@@ -101,11 +101,11 @@ func createCluster(config *ClusterConfig) error {
 	if err := validateClusterName(config.Name); err != nil {
 		return fmt.Errorf("invalid cluster name: %w", err)
 	}
-	
+
 	if err := validateClusterSize(config.Size); err != nil {
 		return fmt.Errorf("invalid cluster size: %w", err)
 	}
-	
+
 	client := multipass.NewMultipassClient()
 	if !client.IsMultipassInstalled() {
 		return fmt.Errorf("multipass is not installed or not in PATH")
@@ -116,13 +116,13 @@ func createCluster(config *ClusterConfig) error {
 
 func executeClusterCreation(client multipass.Client, config *ClusterConfig) error {
 	var wg sync.WaitGroup
-	
+
 	if err := client.CreateCluster(config.Name, config.Size, &wg); err != nil {
 		return fmt.Errorf("failed to create cluster: %w", err)
 	}
-	
+
 	masterNodeName := fmt.Sprintf("%s-master", config.Name)
-	
+
 	// Install K3s on master node
 	if err := installMasterNode(client, masterNodeName); err != nil {
 		return fmt.Errorf("failed to install K3s on master: %w", err)
@@ -133,13 +133,13 @@ func executeClusterCreation(client multipass.Client, config *ClusterConfig) erro
 	if err != nil {
 		return fmt.Errorf("failed to get master credentials: %w", err)
 	}
-	
+
 	// Configure worker nodes
 	workerErrors := configureWorkerNodes(client, config, masterIP, accessToken)
-	
+
 	// Report results
 	reportClusterCreationResults(config, workerErrors)
-	
+
 	// Update kubeconfig
 	return updateKubeConfig(client, masterNodeName, config.Name)
 }
@@ -158,12 +158,12 @@ func getMasterCredentials(client multipass.Client, masterNodeName string) (strin
 		return "", "", fmt.Errorf("failed to get access token: %w", err)
 	}
 	accessToken = strings.TrimSpace(accessToken)
-	
+
 	masterIP, err := client.GetNodeIP(masterNodeName)
 	if err != nil || masterIP == "" {
 		return "", "", fmt.Errorf("failed to get master node IP: %w", err)
 	}
-	
+
 	return accessToken, masterIP, nil
 }
 
@@ -171,7 +171,7 @@ func configureWorkerNodes(client multipass.Client, config *ClusterConfig, master
 	workerErrors := make([]workerError, 0)
 	var workerErrorsMutex sync.Mutex
 	var wg sync.WaitGroup
-	
+
 	for i := 0; i < config.Size-1; i++ {
 		wg.Add(1)
 		go func(i int) {
@@ -196,7 +196,7 @@ func configureWorkerNodes(client multipass.Client, config *ClusterConfig, master
 		}(i)
 	}
 	wg.Wait()
-	
+
 	return workerErrors
 }
 
@@ -206,7 +206,7 @@ func reportClusterCreationResults(config *ClusterConfig, workerErrors []workerEr
 		for _, we := range workerErrors {
 			logger.Errorln("  - %s: %v", we.nodeName, we.err)
 		}
-		logger.Warnln("Cluster created with %d/%d worker nodes successfully configured", 
+		logger.Warnln("Cluster created with %d/%d worker nodes successfully configured",
 			config.Size-1-len(workerErrors), config.Size-1)
 	} else {
 		logger.Successln("Successfully created cluster '%s' with %d nodes", config.Name, config.Size)
@@ -215,28 +215,28 @@ func reportClusterCreationResults(config *ClusterConfig, workerErrors []workerEr
 
 func updateKubeConfig(client multipass.Client, masterNodeName, clusterName string) error {
 	logger.Infoln("Attempting to update kubeconfig...")
-	
+
 	kubConfig, err := client.ExecuteShell(masterNodeName, KubeConfigCmd)
 	if err != nil || kubConfig == "" {
 		return fmt.Errorf("failed to get kube config: %w", err)
 	}
-	
+
 	// Get master IP to replace 127.0.0.1 in kubeconfig
 	masterIP, err := client.GetNodeIP(masterNodeName)
 	if err != nil {
 		return fmt.Errorf("failed to get master IP: %w", err)
 	}
-	
+
 	// Replace localhost with master IP
 	kubConfig = strings.ReplaceAll(kubConfig, "127.0.0.1", masterIP)
-	
+
 	if err := createKubeConfigFile(kubConfig, clusterName); err != nil {
 		logger.Errorln("Failed to update kubeconfig: %v", err)
 		logger.Warnln("Cluster created successfully, but kubeconfig update failed.")
 		logger.Infof("You can manually retrieve the kubeconfig using: playground cluster kubeconfig --name %s\n", clusterName)
 		return err
 	}
-	
+
 	logger.Successln("Successfully updated kubeconfig.")
 	return nil
 }
@@ -247,30 +247,30 @@ func createKubeConfigFile(kubeConfig, clusterName string) error {
 	if err != nil {
 		return fmt.Errorf("failed to parse new kubeconfig: %w", err)
 	}
-	
+
 	// Update context and cluster names to include cluster name
 	contextName := fmt.Sprintf("%s-context", clusterName)
 	clusterKey := fmt.Sprintf("%s-cluster", clusterName)
 	userKey := fmt.Sprintf("%s-user", clusterName)
-	
+
 	// Rename the default entries to use cluster-specific names
 	if cluster, exists := newConfig.Clusters["default"]; exists {
 		delete(newConfig.Clusters, "default")
 		newConfig.Clusters[clusterKey] = cluster
 	}
-	
+
 	if authInfo, exists := newConfig.AuthInfos["default"]; exists {
 		delete(newConfig.AuthInfos, "default")
 		newConfig.AuthInfos[userKey] = authInfo
 	}
-	
+
 	if context, exists := newConfig.Contexts["default"]; exists {
 		delete(newConfig.Contexts, "default")
 		context.Cluster = clusterKey
 		context.AuthInfo = userKey
 		newConfig.Contexts[contextName] = context
 	}
-	
+
 	// Set current context to the new cluster
 	newConfig.CurrentContext = contextName
 

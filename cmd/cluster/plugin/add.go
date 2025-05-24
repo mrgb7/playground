@@ -34,7 +34,7 @@ var addCmd = &cobra.Command{
 		for _, plugin := range pluginsList {
 			if plugin.GetName() == pName {
 				found = true
-				
+
 				err := plugin.Install(c.KubeConfig, c.Name)
 				if err != nil {
 					logger.Errorln("Error installing plugin: %v", err)
@@ -44,7 +44,7 @@ var addCmd = &cobra.Command{
 				break
 			}
 		}
-		
+
 		if !found {
 			logger.Errorln("Plugin %s not found", pName)
 			logger.Infoln("Available plugins:")
