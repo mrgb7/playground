@@ -1,6 +1,8 @@
 module github.com/mrgb7/playground
 
-go 1.21
+go 1.23.0
+
+toolchain go1.24.2
 
 require (
 	github.com/fatih/color v1.18.0

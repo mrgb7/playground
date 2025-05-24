@@ -21,14 +21,16 @@ type MultiPassList struct {
 type MultiPassListItem struct {
 	Name string `json:"name"`
 }
+
 type MultiPassInfo struct {
-	Errors []interface{} `json:"errors"`
-	Info   struct {
-		PlaygroundMaster struct {
-			IPv4 []string `json:"ipv4"`
-		} `json:"playground-master"`
-	} `json:"info"`
+	Errors []interface{}              `json:"errors"`
+	Info   map[string]MultiPassNode   `json:"info"`
 }
+
+type MultiPassNode struct {
+	IPv4 []string `json:"ipv4"`
+}
+
 type MultipassClient struct {
 	BinaryPath string
 }
@@ -65,7 +67,7 @@ func (m *MultipassClient) CreateCluster(clusterName string, nodeCount int, wg *s
 		defer wg.Done()
 		err := m.CreateNode(name, DefaultMasterCPUs, DefaultMasterMemory, DefaultMasterDisk)
 		if err != nil {
-			logger.Error("failed to create master node %s: %v", name, err)
+			logger.Errorf("failed to create master node %s: %v\n", name, err)
 			errChan <- fmt.Errorf("failed to create master node %s: %w", name, err)
 			return
 		}
@@ -177,7 +179,11 @@ func (m *MultipassClient) DeleteCluster(clusterName string, wg *sync.WaitGroup) 
 	
 	// Return combined errors if any occurred
 	if len(errors) > 0 {
-		return errors.Join(errors...)
+		var errMessages []string
+		for _, err := range errors {
+			errMessages = append(errMessages, err.Error())
+		}
+		return fmt.Errorf("multiple deletion errors: %s", strings.Join(errMessages, "; "))
 	}
 
 	return nil
@@ -249,20 +255,29 @@ func (m *MultipassClient) GetNodeIP(name string) (string, error) {
 		logger.Errorln(errMsg)
 		return "", fmt.Errorf("failed to get IP address for node '%s': %s - %w", name, stderr.String(), err)
 	}
+	
 	var data MultiPassInfo
 	if err := json.Unmarshal(stdout.Bytes(), &data); err != nil {
 		errMsg := fmt.Sprintf("Failed to parse JSON output: %s", err)
 		logger.Errorln(errMsg)
 		return "", fmt.Errorf("failed to parse JSON output: %s - %w", err, err)
 	}
-	ipv4List := data.Info.PlaygroundMaster.IPv4
-	if len(ipv4List) == 0 {
+	
+	// Look for the node in the info map
+	nodeInfo, exists := data.Info[name]
+	if !exists {
+		errMsg := fmt.Sprintf("Node '%s' not found in multipass info", name)
+		logger.Errorln(errMsg)
+		return "", fmt.Errorf("node '%s' not found in multipass info", name)
+	}
+	
+	if len(nodeInfo.IPv4) == 0 {
 		errMsg := fmt.Sprintf("No IPv4 addresses found for node '%s'", name)
 		logger.Errorln(errMsg)
 		return "", fmt.Errorf("no IPv4 addresses found for node '%s'", name)
 	}
-	ip := ipv4List[0]
-
+	
+	ip := nodeInfo.IPv4[0]
 	return ip, nil
 }
 
