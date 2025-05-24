@@ -11,7 +11,6 @@ import (
 	"github.com/mrgb7/playground/internal/multipass"
 	"github.com/mrgb7/playground/pkg/logger"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/homedir"
@@ -222,7 +221,16 @@ func updateKubeConfig(client multipass.Client, masterNodeName, clusterName strin
 		return fmt.Errorf("failed to get kube config: %w", err)
 	}
 	
-	if err := createKubeConfigFile(kubConfig); err != nil {
+	// Get master IP to replace 127.0.0.1 in kubeconfig
+	masterIP, err := client.GetNodeIP(masterNodeName)
+	if err != nil {
+		return fmt.Errorf("failed to get master IP: %w", err)
+	}
+	
+	// Replace localhost with master IP
+	kubConfig = strings.ReplaceAll(kubConfig, "127.0.0.1", masterIP)
+	
+	if err := createKubeConfigFile(kubConfig, clusterName); err != nil {
 		logger.Errorln("Failed to update kubeconfig: %v", err)
 		logger.Warnln("Cluster created successfully, but kubeconfig update failed.")
 		logger.Infof("You can manually retrieve the kubeconfig using: playground cluster kubeconfig --name %s\n", clusterName)
@@ -233,11 +241,38 @@ func updateKubeConfig(client multipass.Client, masterNodeName, clusterName strin
 	return nil
 }
 
-func createKubeConfigFile(kubeConfig string) error {
-	var newConfig api.Config
-	if err := yaml.Unmarshal([]byte(kubeConfig), &newConfig); err != nil {
+func createKubeConfigFile(kubeConfig, clusterName string) error {
+	// Use client-go to properly parse the K3s kubeconfig format
+	newConfig, err := clientcmd.Load([]byte(kubeConfig))
+	if err != nil {
 		return fmt.Errorf("failed to parse new kubeconfig: %w", err)
 	}
+	
+	// Update context and cluster names to include cluster name
+	contextName := fmt.Sprintf("%s-context", clusterName)
+	clusterKey := fmt.Sprintf("%s-cluster", clusterName)
+	userKey := fmt.Sprintf("%s-user", clusterName)
+	
+	// Rename the default entries to use cluster-specific names
+	if cluster, exists := newConfig.Clusters["default"]; exists {
+		delete(newConfig.Clusters, "default")
+		newConfig.Clusters[clusterKey] = cluster
+	}
+	
+	if authInfo, exists := newConfig.AuthInfos["default"]; exists {
+		delete(newConfig.AuthInfos, "default")
+		newConfig.AuthInfos[userKey] = authInfo
+	}
+	
+	if context, exists := newConfig.Contexts["default"]; exists {
+		delete(newConfig.Contexts, "default")
+		context.Cluster = clusterKey
+		context.AuthInfo = userKey
+		newConfig.Contexts[contextName] = context
+	}
+	
+	// Set current context to the new cluster
+	newConfig.CurrentContext = contextName
 
 	kubeconfigPath := filepath.Join(homedir.HomeDir(), ".kube", "config")
 	var existingConfig *api.Config
@@ -245,13 +280,13 @@ func createKubeConfigFile(kubeConfig string) error {
 	if _, err := os.Stat(kubeconfigPath); os.IsNotExist(err) {
 		existingConfig = api.NewConfig()
 	} else {
-		config, err := clientcmd.LoadFromFile(kubeconfigPath)
+		existingConfig, err = clientcmd.LoadFromFile(kubeconfigPath)
 		if err != nil {
 			return fmt.Errorf("failed to load existing kubeconfig: %w", err)
 		}
-		existingConfig = config
 	}
 
+	// Merge configurations
 	for name, cluster := range newConfig.Clusters {
 		existingConfig.Clusters[name] = cluster
 	}
@@ -264,9 +299,8 @@ func createKubeConfigFile(kubeConfig string) error {
 		existingConfig.Contexts[name] = context
 	}
 
-	if newConfig.CurrentContext != "" {
-		existingConfig.CurrentContext = newConfig.CurrentContext
-	}
+	// Set current context to the new cluster
+	existingConfig.CurrentContext = contextName
 
 	if err := clientcmd.WriteToFile(*existingConfig, kubeconfigPath); err != nil {
 		return fmt.Errorf("failed to write merged kubeconfig: %w", err)
