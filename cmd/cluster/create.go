@@ -85,7 +85,7 @@ var createCmd = &cobra.Command{
 					// Note: We don't return here to allow other workers to continue
 					// The error will be logged but won't stop the entire process
 				} else {
-					logger.Successln("Successfully configured worker node: %s", nodeName)
+					logger.Successf("Successfully configured worker node: %s", nodeName)
 				}
 			}(i)
 		}
