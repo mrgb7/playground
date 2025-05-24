@@ -14,6 +14,19 @@ import (
 	"github.com/mrgb7/playground/pkg/logger"
 )
 
+// Client defines the interface for multipass operations
+type Client interface {
+	IsMultipassInstalled() bool
+	CreateCluster(clusterName string, nodeCount int, wg *sync.WaitGroup) error
+	DeleteCluster(clusterName string, wg *sync.WaitGroup) error
+	CreateNode(name string, cpus int, memory string, disk string) error
+	DeleteNode(name string) error
+	PurgeNodes() error
+	GetNodeIP(name string) (string, error)
+	ExecuteShell(name string, command string) (string, error)
+	ExecuteShellWithTimeout(name string, command string, timeoutSeconds int, envs ...string) (string, error)
+}
+
 type MultiPassList struct {
 	List []MultiPassListItem `json:"list"`
 }
@@ -121,14 +134,10 @@ func (m *MultipassClient) DeleteCluster(clusterName string, wg *sync.WaitGroup) 
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		errMsg := fmt.Sprintf("Failed to list instances: %s", stderr.String())
-		logger.Errorln(errMsg)
 		return fmt.Errorf("failed to list instances: %s - %w", stderr.String(), err)
 	}
 	if err := json.Unmarshal(stdout.Bytes(), &list); err != nil {
-		errMsg := fmt.Sprintf("Failed to parse JSON output: %s", err)
-		logger.Errorln(errMsg)
-		return fmt.Errorf("failed to parse JSON output: %s - %w", err, err)
+		return fmt.Errorf("failed to parse JSON output: %w", err)
 	}
 	
 	var instancesToDelete []string
@@ -191,9 +200,7 @@ func (m *MultipassClient) CreateNode(name string, cpus int, memory string, disk 
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		errMsg := "failed to create node '%s': %s"
-		logger.Errorln(errMsg, name, stderr.String())
-		return fmt.Errorf(errMsg, name, stderr.String())
+		return fmt.Errorf("failed to create node '%s': %s - %w", name, stderr.String(), err)
 	}
 
 	return nil
@@ -205,8 +212,6 @@ func (m *MultipassClient) DeleteNode(name string) error {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		errMsg := fmt.Sprintf("Failed to delete node '%s': %s", name, stderr.String())
-		logger.Errorln(errMsg)
 		return fmt.Errorf("failed to delete node '%s': %s - %w", name, stderr.String(), err)
 	}
 
@@ -221,8 +226,6 @@ func (m *MultipassClient) PurgeNodes() error {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		errMsg := fmt.Sprintf("Failed to purge deleted instances: %s", stderr.String())
-		logger.Errorln(errMsg)
 		return fmt.Errorf("failed to purge deleted instances: %s - %w", stderr.String(), err)
 	}
 
@@ -237,28 +240,20 @@ func (m *MultipassClient) GetNodeIP(name string) (string, error) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		errMsg := fmt.Sprintf("Failed to get IP address for node '%s': %s", name, stderr.String())
-		logger.Errorln(errMsg)
 		return "", fmt.Errorf("failed to get IP address for node '%s': %s - %w", name, stderr.String(), err)
 	}
 	
 	var data MultiPassInfo
 	if err := json.Unmarshal(stdout.Bytes(), &data); err != nil {
-		errMsg := fmt.Sprintf("Failed to parse JSON output: %s", err)
-		logger.Errorln(errMsg)
-		return "", fmt.Errorf("failed to parse JSON output: %s - %w", err, err)
+		return "", fmt.Errorf("failed to parse JSON output: %w", err)
 	}
 	
 	nodeInfo, exists := data.Info[name]
 	if !exists {
-		errMsg := fmt.Sprintf("Node '%s' not found in multipass info", name)
-		logger.Errorln(errMsg)
 		return "", fmt.Errorf("node '%s' not found in multipass info", name)
 	}
 	
 	if len(nodeInfo.IPv4) == 0 {
-		errMsg := fmt.Sprintf("No IPv4 addresses found for node '%s'", name)
-		logger.Errorln(errMsg)
 		return "", fmt.Errorf("no IPv4 addresses found for node '%s'", name)
 	}
 	
@@ -266,8 +261,8 @@ func (m *MultipassClient) GetNodeIP(name string) (string, error) {
 	return ip, nil
 }
 
-func (m *MultipassClient) ExcuteShell(name string, command string) (string, error) {
-	return m.ExcuteShellWithTimeout(name, command, 0) // No timeout by default
+func (m *MultipassClient) ExecuteShell(name string, command string) (string, error) {
+	return m.ExecuteShellWithTimeout(name, command, 0) // No timeout by default
 }
 
 func (m *MultipassClient) ExecuteShellWithTimeout(name string, command string, timeoutSeconds int, envs ...string) (string, error) {

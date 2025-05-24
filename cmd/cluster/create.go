@@ -17,6 +17,19 @@ import (
 	"k8s.io/client-go/util/homedir"
 )
 
+// ClusterConfig holds the configuration for cluster creation
+type ClusterConfig struct {
+	Name               string
+	Size               int
+	WithCoreComponents bool
+}
+
+// workerError represents an error that occurred while configuring a worker node
+type workerError struct {
+	nodeName string
+	err      error
+}
+
 var (
 	cCreateName        string
 	cCreateSize        int
@@ -28,7 +41,10 @@ const (
 	GetAccessTokenCmd    = `sudo cat /var/lib/rancher/k3s/server/node-token`
 	K3sCreateWorkerCmd   = `curl -sfL https://get.k3s.io | K3S_URL=https://%s:6443 K3S_TOKEN=%s  sh -`
 	KubeConfigCmd        = `sudo cat /etc/rancher/k3s/k3s.yaml`
-	K3sInstallTimeout    = 300
+	K3sInstallTimeout    = 300 // seconds - timeout for K3s installation
+	MaxClusterSize       = 10  // maximum number of nodes allowed in cluster
+	MaxClusterNameLength = 63  // maximum length for cluster name (DNS label limit)
+	MinClusterSize       = 1   // minimum number of nodes in cluster
 )
 
 func validateClusterName(name string) error {
@@ -45,20 +61,20 @@ func validateClusterName(name string) error {
 		return fmt.Errorf("cluster name must start and end with alphanumeric characters and contain only lowercase letters, numbers, and hyphens")
 	}
 	
-	if len(name) > 63 {
-		return fmt.Errorf("cluster name must be 63 characters or less")
+	if len(name) > MaxClusterNameLength {
+		return fmt.Errorf("cluster name must be %d characters or less", MaxClusterNameLength)
 	}
 	
 	return nil
 }
 
 func validateClusterSize(size int) error {
-	if size < 1 {
-		return fmt.Errorf("cluster size must be at least 1")
+	if size < MinClusterSize {
+		return fmt.Errorf("cluster size must be at least %d", MinClusterSize)
 	}
 	
-	if size > 10 {
-		return fmt.Errorf("cluster size cannot exceed 10 nodes")
+	if size > MaxClusterSize {
+		return fmt.Errorf("cluster size cannot exceed %d nodes", MaxClusterSize)
 	}
 	
 	return nil
@@ -69,107 +85,152 @@ var createCmd = &cobra.Command{
 	Short: "Create a new cluster",
 	Long:  `Create a new cluster with the specified configurations`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if err := validateClusterName(cCreateName); err != nil {
-			logger.Errorf("Invalid cluster name: %v\n", err)
-			return
+		config := &ClusterConfig{
+			Name:               cCreateName,
+			Size:               cCreateSize,
+			WithCoreComponents: withCoreComponents,
 		}
 		
-		if err := validateClusterSize(cCreateSize); err != nil {
-			logger.Errorf("Invalid cluster size: %v\n", err)
-			return
-		}
-		
-		var wg sync.WaitGroup
-		client := multipass.NewMultipassClient()
-		if !client.IsMultipassInstalled() {
-			logger.Errorln("Error: Multipass is not installed or not in PATH. Please install Multipass first.")
-			return
-		}
-
-		type workerError struct {
-			nodeName string
-			err      error
-		}
-		workerErrors := make([]workerError, 0)
-		var workerErrorsMutex sync.Mutex
-
-		err := client.CreateCluster(cCreateName, cCreateSize, &wg)
-		if err != nil {
+		if err := createCluster(config); err != nil {
 			logger.Errorln("Failed to create cluster: %v", err)
 			return
 		}
-		
-		masterNodeName := fmt.Sprintf("%s-master", cCreateName)
-		std, err := client.ExecuteShellWithTimeout(masterNodeName, K3sCreateMasterCmd, K3sInstallTimeout)
-		if err != nil || std == "" {
-			logger.Errorln("Failed to create k3s on master: %v", err)
-			return
-		}
-
-		accessToken, err := client.ExecuteShell(masterNodeName, GetAccessTokenCmd)
-		if err != nil || accessToken == "" {
-			logger.Errorln("Failed to get access token: %v", err)
-			return
-		}
-		accessToken = strings.TrimSpace(accessToken)
-		
-		kubConfig, err := client.ExecuteShell(masterNodeName, KubeConfigCmd)
-		if err != nil || kubConfig == "" {
-			logger.Errorln("Failed to get kube config: %v", err)
-			return
-		}
-		
-		masterIP, err := client.GetNodeIP(masterNodeName)
-		if err != nil || masterIP == "" {
-			logger.Errorln("Failed to get master node IP: %v", err)
-			return
-		}
-		
-		for i := 0; i < cCreateSize-1; i++ {
-			wg.Add(1)
-			go func(i int) {
-				defer wg.Done()
-				nodeName := fmt.Sprintf("%s-worker-%d", cCreateName, i+1)
-				_, err = client.ExecuteShellWithTimeout(
-					nodeName,
-					fmt.Sprintf(K3sCreateWorkerCmd, masterIP, accessToken),
-					K3sInstallTimeout,
-				)
-				if err != nil {
-					workerErrorsMutex.Lock()
-					workerErrors = append(workerErrors, workerError{
-						nodeName: nodeName,
-						err:      err,
-					})
-					workerErrorsMutex.Unlock()
-					logger.Errorln("Failed to install K3S on worker node %s: %v", nodeName, err)
-				} else {
-					logger.Successf("Successfully configured worker node: %s\n", nodeName)
-				}
-			}(i)
-		}
-		wg.Wait()
-
-		if len(workerErrors) > 0 {
-			logger.Warnln("Some worker nodes failed to configure properly:")
-			for _, we := range workerErrors {
-				logger.Errorln("  - %s: %v", we.nodeName, we.err)
-			}
-			logger.Warnln("Cluster created with %d/%d worker nodes successfully configured", 
-				cCreateSize-1-len(workerErrors), cCreateSize-1)
-		} else {
-			logger.Successln("Successfully created cluster '%s' with %d nodes", cCreateName, cCreateSize)
-		}
-
-		logger.Infoln("Attempting to update kubeconfig...")
-		if err := createKubeConfigFile(kubConfig); err != nil {
-			logger.Errorln("Failed to update kubeconfig: %v", err)
-			logger.Warnln("Cluster created successfully, but kubeconfig update failed.")
-			logger.Infof("You can manually retrieve the kubeconfig using: playground cluster kubeconfig --name %s\n", cCreateName)
-		} else {
-			logger.Successln("Successfully updated kubeconfig.")
-		}
 	},
+}
+
+func createCluster(config *ClusterConfig) error {
+	if err := validateClusterName(config.Name); err != nil {
+		return fmt.Errorf("invalid cluster name: %w", err)
+	}
+	
+	if err := validateClusterSize(config.Size); err != nil {
+		return fmt.Errorf("invalid cluster size: %w", err)
+	}
+	
+	client := multipass.NewMultipassClient()
+	if !client.IsMultipassInstalled() {
+		return fmt.Errorf("multipass is not installed or not in PATH")
+	}
+
+	return executeClusterCreation(client, config)
+}
+
+func executeClusterCreation(client multipass.Client, config *ClusterConfig) error {
+	var wg sync.WaitGroup
+	
+	if err := client.CreateCluster(config.Name, config.Size, &wg); err != nil {
+		return fmt.Errorf("failed to create cluster: %w", err)
+	}
+	
+	masterNodeName := fmt.Sprintf("%s-master", config.Name)
+	
+	// Install K3s on master node
+	if err := installMasterNode(client, masterNodeName); err != nil {
+		return fmt.Errorf("failed to install K3s on master: %w", err)
+	}
+
+	// Get access token and master IP
+	accessToken, masterIP, err := getMasterCredentials(client, masterNodeName)
+	if err != nil {
+		return fmt.Errorf("failed to get master credentials: %w", err)
+	}
+	
+	// Configure worker nodes
+	workerErrors := configureWorkerNodes(client, config, masterIP, accessToken)
+	
+	// Report results
+	reportClusterCreationResults(config, workerErrors)
+	
+	// Update kubeconfig
+	return updateKubeConfig(client, masterNodeName, config.Name)
+}
+
+func installMasterNode(client multipass.Client, masterNodeName string) error {
+	std, err := client.ExecuteShellWithTimeout(masterNodeName, K3sCreateMasterCmd, K3sInstallTimeout)
+	if err != nil || std == "" {
+		return fmt.Errorf("failed to create k3s on master: %w", err)
+	}
+	return nil
+}
+
+func getMasterCredentials(client multipass.Client, masterNodeName string) (string, string, error) {
+	accessToken, err := client.ExecuteShell(masterNodeName, GetAccessTokenCmd)
+	if err != nil || accessToken == "" {
+		return "", "", fmt.Errorf("failed to get access token: %w", err)
+	}
+	accessToken = strings.TrimSpace(accessToken)
+	
+	masterIP, err := client.GetNodeIP(masterNodeName)
+	if err != nil || masterIP == "" {
+		return "", "", fmt.Errorf("failed to get master node IP: %w", err)
+	}
+	
+	return accessToken, masterIP, nil
+}
+
+func configureWorkerNodes(client multipass.Client, config *ClusterConfig, masterIP, accessToken string) []workerError {
+	workerErrors := make([]workerError, 0)
+	var workerErrorsMutex sync.Mutex
+	var wg sync.WaitGroup
+	
+	for i := 0; i < config.Size-1; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			nodeName := fmt.Sprintf("%s-worker-%d", config.Name, i+1)
+			_, err := client.ExecuteShellWithTimeout(
+				nodeName,
+				fmt.Sprintf(K3sCreateWorkerCmd, masterIP, accessToken),
+				K3sInstallTimeout,
+			)
+			if err != nil {
+				workerErrorsMutex.Lock()
+				workerErrors = append(workerErrors, workerError{
+					nodeName: nodeName,
+					err:      err,
+				})
+				workerErrorsMutex.Unlock()
+				logger.Errorln("Failed to install K3S on worker node %s: %v", nodeName, err)
+			} else {
+				logger.Successf("Successfully configured worker node: %s\n", nodeName)
+			}
+		}(i)
+	}
+	wg.Wait()
+	
+	return workerErrors
+}
+
+func reportClusterCreationResults(config *ClusterConfig, workerErrors []workerError) {
+	if len(workerErrors) > 0 {
+		logger.Warnln("Some worker nodes failed to configure properly:")
+		for _, we := range workerErrors {
+			logger.Errorln("  - %s: %v", we.nodeName, we.err)
+		}
+		logger.Warnln("Cluster created with %d/%d worker nodes successfully configured", 
+			config.Size-1-len(workerErrors), config.Size-1)
+	} else {
+		logger.Successln("Successfully created cluster '%s' with %d nodes", config.Name, config.Size)
+	}
+}
+
+func updateKubeConfig(client multipass.Client, masterNodeName, clusterName string) error {
+	logger.Infoln("Attempting to update kubeconfig...")
+	
+	kubConfig, err := client.ExecuteShell(masterNodeName, KubeConfigCmd)
+	if err != nil || kubConfig == "" {
+		return fmt.Errorf("failed to get kube config: %w", err)
+	}
+	
+	if err := createKubeConfigFile(kubConfig); err != nil {
+		logger.Errorln("Failed to update kubeconfig: %v", err)
+		logger.Warnln("Cluster created successfully, but kubeconfig update failed.")
+		logger.Infof("You can manually retrieve the kubeconfig using: playground cluster kubeconfig --name %s\n", clusterName)
+		return err
+	}
+	
+	logger.Successln("Successfully updated kubeconfig.")
+	return nil
 }
 
 func createKubeConfigFile(kubeConfig string) error {
