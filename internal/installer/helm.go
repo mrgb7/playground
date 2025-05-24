@@ -119,13 +119,7 @@ func (h *HelmInstaller) createHelmActionConfig(namespace string) (*action.Config
 		return nil, fmt.Errorf("failed to write kubeconfig to temp file: %w", err)
 	}
 	
-	// Ensure cleanup of temp file
-	defer func() {
-		if err := os.Remove(tmpPath); err != nil {
-			log.Printf("Warning: failed to remove temp kubeconfig file: %v", err)
-		}
-	}()
-	
+	// Return the kubeconfig file path for explicit cleanup by the caller
 	settings.KubeConfig = tmpPath
 	actionConfig := new(action.Configuration)
 	if err := actionConfig.Init(settings.RESTClientGetter(), namespace, os.Getenv("HELM_DRIVER"), log.Printf); err != nil {
