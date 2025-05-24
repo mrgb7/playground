@@ -39,7 +39,7 @@ var (
 				logger.Errorln("Failed to delete cluster: %v", err)
 				return
 			}
-			wg.Wait() // Wait for all goroutines to complete
+			wg.Wait()
 
 			if cDeleteForce {
 				logger.Infoln("Purging deleted instances...")
@@ -56,6 +56,5 @@ var (
 )
 
 func init() {
-	ClusterCmd.AddCommand(deleteCmd)
 	deleteCmd.Flags().BoolVarP(&cDeleteForce, "force", "f", false, "Force delete cluster resources")
 }

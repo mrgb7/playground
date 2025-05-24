@@ -15,7 +15,11 @@ var (
 	successColor = color.New(color.FgGreen, color.Bold)
 )
 
-func Info(format string, args []interface{}) {
+func Info(format string, args ...interface{}) {
+	infoColor.Printf(format, args...)
+}
+
+func Infof(format string, args ...interface{}) {
 	infoColor.Printf(format, args...)
 }
 
@@ -27,11 +31,19 @@ func Warn(format string, args ...interface{}) {
 	warnColor.Printf(format, args...)
 }
 
+func Warnf(format string, args ...interface{}) {
+	warnColor.Printf(format, args...)
+}
+
 func Warnln(format string, args ...interface{}) {
 	warnColor.Printf(format+"\n", args...)
 }
 
 func Error(format string, args ...interface{}) {
+	errorColor.Printf(format, args...)
+}
+
+func Errorf(format string, args ...interface{}) {
 	errorColor.Printf(format, args...)
 }
 
@@ -43,11 +55,19 @@ func Debug(format string, args ...interface{}) {
 	debugColor.Printf(format, args...)
 }
 
+func Debugf(format string, args ...interface{}) {
+	debugColor.Printf(format, args...)
+}
+
 func Debugln(format string, args ...interface{}) {
 	debugColor.Printf(format+"\n", args...)
 }
 
 func Success(format string, args ...interface{}) {
+	successColor.Printf(format, args...)
+}
+
+func Successf(format string, args ...interface{}) {
 	successColor.Printf(format, args...)
 }
 

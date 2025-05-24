@@ -2,9 +2,11 @@ package plugins
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/mrgb7/playground/internal/installer"
@@ -25,6 +27,9 @@ const (
 	ArgocdNamespace     = "argocd"
 	ArgoRepoName        = "argo"
 	ArgocdValuesFileURL = "https://raw.githubusercontent.com/mrgb7/core-infrastructure/refs/heads/main/argocd/argocd-values-local.yaml"
+	
+	HTTPTimeoutSeconds = 30
+	MaxResponseSize    = 10 * 1024 * 1024
 )
 
 func (a *Argocd) GetName() string {
@@ -73,26 +78,47 @@ func (a *Argocd) GetInstaller() (installer.Installer, error) {
 }
 
 func (a *Argocd) getValuesContent() (map[string]interface{}, error) {
-	httpClient := &http.Client{}
-	resp, err := httpClient.Get(ArgocdValuesFileURL)
+	if _, err := url.Parse(ArgocdValuesFileURL); err != nil {
+		return nil, fmt.Errorf("invalid values file URL: %w", err)
+	}
+	
+	httpClient := &http.Client{
+		Timeout: HTTPTimeoutSeconds * time.Second,
+	}
+	
+	ctx, cancel := context.WithTimeout(context.Background(), HTTPTimeoutSeconds*time.Second)
+	defer cancel()
+	
+	req, err := http.NewRequestWithContext(ctx, "GET", ArgocdValuesFileURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get file content: %w", err)
+		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+	
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch values file: %w", err)
 	}
 	defer resp.Body.Close()
+	
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get file content: %s", resp.Status)
+		return nil, fmt.Errorf("failed to fetch values file: HTTP %d %s", resp.StatusCode, resp.Status)
 	}
-	res, err := io.ReadAll(resp.Body)
+	
+	limitedReader := io.LimitReader(resp.Body, MaxResponseSize)
+	content, err := io.ReadAll(limitedReader)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read file content: %w", err)
+		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
-	content := string(res)
-	vl := make(map[string]interface{})
-	err = yaml.Unmarshal([]byte(content), &vl)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal yaml: %w", err)
+	
+	hash := sha256.Sum256(content)
+	logger.Debugf("ArgoCD values file SHA256: %x", hash)
+	
+	var values map[string]interface{}
+	if err := yaml.Unmarshal(content, &values); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal YAML content: %w", err)
 	}
-	return vl, nil
+	
+	return values, nil
 }
 
 func (a *Argocd) Status() string {
