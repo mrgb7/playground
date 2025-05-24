@@ -84,7 +84,6 @@ var createCmd = &cobra.Command{
 					logger.Errorln("Failed to install K3S on worker node %s: %v", nodeName, err)
 					return
 				}
-				wg.Done()
 			}(i)
 
 		}
