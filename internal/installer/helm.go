@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 
 	"helm.sh/helm/v3/pkg/action"
@@ -111,16 +112,23 @@ func (h *HelmInstaller) UnInstall(options *InstallOptions) error {
 }
 
 func (h *HelmInstaller) createHelmActionConfig(namespace string) (*action.Configuration, error) {
-	tmpPath := os.TempDir() + "/kubeconfig"
-	if err := os.WriteFile(tmpPath, []byte(h.KubeConfig), 0o644); err != nil {
+	tmpPath := filepath.Join(os.TempDir(), fmt.Sprintf("kubeconfig-%d", time.Now().UnixNano()))
+	
+	// Use more restrictive permissions for kubeconfig file
+	if err := os.WriteFile(tmpPath, []byte(h.KubeConfig), 0600); err != nil {
 		return nil, fmt.Errorf("failed to write kubeconfig to temp file: %w", err)
 	}
+	
+	// Ensure cleanup of temp file
+	defer func() {
+		if err := os.Remove(tmpPath); err != nil {
+			log.Printf("Warning: failed to remove temp kubeconfig file: %v", err)
+		}
+	}()
+	
 	settings.KubeConfig = tmpPath
 	actionConfig := new(action.Configuration)
 	if err := actionConfig.Init(settings.RESTClientGetter(), namespace, os.Getenv("HELM_DRIVER"), log.Printf); err != nil {
-		if tmpPath != "" {
-			os.Remove(tmpPath)
-		}
 		return nil, fmt.Errorf("failed to initialize helm action config: %w", err)
 	}
 

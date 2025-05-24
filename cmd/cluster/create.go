@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -28,13 +29,64 @@ const (
 	K3S_CREATE_WORKER_CMD = `curl -sfL https://get.k3s.io | K3S_URL=https://%s:6443 K3S_TOKEN=%s  sh -`
 	KUBE_CONFIG_CMD       = `sudo cat /etc/rancher/k3s/k3s.yaml`
 	K3S_INSTALL_TIMEOUT   = 300 // 5 minutes timeout for K3S installation
+	
+	// Validation constraints
+	MinClusterSize     = 1
+	MaxClusterSize     = 10
+	MaxClusterNameLen  = 50
+	MinClusterNameLen  = 3
 )
+
+// validateClusterName validates the cluster name according to naming conventions
+func validateClusterName(name string) error {
+	if len(name) < MinClusterNameLen {
+		return fmt.Errorf("cluster name must be at least %d characters long", MinClusterNameLen)
+	}
+	if len(name) > MaxClusterNameLen {
+		return fmt.Errorf("cluster name must be no more than %d characters long", MaxClusterNameLen)
+	}
+	
+	// Check for valid characters (alphanumeric and hyphens, no spaces)
+	validName := regexp.MustCompile(`^[a-zA-Z0-9-]+$`)
+	if !validName.MatchString(name) {
+		return fmt.Errorf("cluster name can only contain alphanumeric characters and hyphens")
+	}
+	
+	// Cannot start or end with hyphen
+	if strings.HasPrefix(name, "-") || strings.HasSuffix(name, "-") {
+		return fmt.Errorf("cluster name cannot start or end with a hyphen")
+	}
+	
+	return nil
+}
+
+// validateClusterSize validates the cluster size is within acceptable limits
+func validateClusterSize(size int) error {
+	if size < MinClusterSize {
+		return fmt.Errorf("cluster size must be at least %d", MinClusterSize)
+	}
+	if size > MaxClusterSize {
+		return fmt.Errorf("cluster size cannot exceed %d nodes", MaxClusterSize)
+	}
+	return nil
+}
 
 var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new cluster",
 	Long:  `Create a new cluster with the specified configurations`,
 	Run: func(cmd *cobra.Command, args []string) {
+		// Validate inputs
+		if err := validateClusterName(cCreateName); err != nil {
+			logger.Errorln("Invalid cluster name: %v", err)
+			return
+		}
+		
+		if err := validateClusterSize(cCreateSize); err != nil {
+			logger.Errorln("Invalid cluster size: %v", err)
+			return
+		}
+		
 		var wg sync.WaitGroup
 		client := multipass.NewMultipassClient()
 		if !client.IsMultipassInstalled() {
