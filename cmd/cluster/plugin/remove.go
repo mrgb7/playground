@@ -31,7 +31,6 @@ var removeCmd = &cobra.Command{
 				found = true
 				
 				if factory, ok := plugin.(plugins.Factory); ok {
-					logger.Info("Using factory-based uninstallation for plugin: %s", pName)
 					err := factory.FactoryUninstall(c.KubeConfig, c.Name)
 					if err != nil {
 						logger.Error("Error uninstalling plugin with factory installer: %v", err)
@@ -40,10 +39,10 @@ var removeCmd = &cobra.Command{
 						if err != nil {
 							logger.Error("Error uninstalling plugin with regular installer: %v", err)
 						} else {
-							logger.Info("Successfully uninstalled %s using regular installer", pName)
+							logger.Info("Successfully uninstalled %s", pName)
 						}
 					} else {
-						logger.Info("Successfully uninstalled %s using factory installer", pName)
+						logger.Info("Successfully uninstalled %s", pName)
 					}
 				} else {
 					logger.Info("Using regular uninstallation for plugin: %s", pName)

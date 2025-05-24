@@ -56,7 +56,6 @@ func IsArgoCDRunning(kubeConfig string) bool {
 			}
 			
 			if readyContainers == totalContainers && totalContainers > 0 {
-				logger.Info("ArgoCD is running and ready")
 				return true
 			}
 		}
@@ -68,8 +67,6 @@ func IsArgoCDRunning(kubeConfig string) bool {
 
 func NewInstaller(plugin Plugin, kubeConfig, clusterName string) (installer.Installer, error) {
 	if IsArgoCDRunning(kubeConfig) {
-		logger.Info("ArgoCD detected - creating ArgoCD installer for plugin: %s", plugin.GetName())
-		
 		argoInstaller, err := installer.NewArgoInstaller(kubeConfig, clusterName)
 		if err != nil {
 			logger.Warn("Failed to create ArgoCD installer, falling back to Helm: %v", err)
@@ -79,7 +76,6 @@ func NewInstaller(plugin Plugin, kubeConfig, clusterName string) (installer.Inst
 		return argoInstaller, nil
 	}
 
-	logger.Info("ArgoCD not detected - creating Helm installer for plugin: %s", plugin.GetName())
 	return plugin.GetInstaller()
 }
 
