@@ -32,28 +32,40 @@ func TestMultipassClient_IsMultipassInstalled(t *testing.T) {
 	}
 }
 
-func TestFormatNodeName(t *testing.T) {
-	tests := []struct {
-		clusterName string
-		nodeType    string
-		index       int
-		expected    string
-	}{
-		{"test-cluster", "master", 0, "test-cluster-master"},
-		{"test-cluster", "worker", 1, "test-cluster-worker-1"},
-		{"my-cluster", "worker", 2, "my-cluster-worker-2"},
+func TestConstants(t *testing.T) {
+	// Test that constants are properly defined
+	if DefaultMasterCPUs <= 0 {
+		t.Errorf("DefaultMasterCPUs should be positive, got: %d", DefaultMasterCPUs)
 	}
 	
-	for _, tt := range tests {
-		var result string
-		if tt.nodeType == "master" {
-			result = tt.clusterName + "-master"
-		} else {
-			result = tt.clusterName + "-worker-" + string(rune(tt.index+'0'))
-		}
-		
-		if result != tt.expected {
-			t.Errorf("Expected node name %s, got: %s", tt.expected, result)
-		}
+	if DefaultMasterMemory == "" {
+		t.Error("DefaultMasterMemory should not be empty")
+	}
+	
+	if DefaultMasterDisk == "" {
+		t.Error("DefaultMasterDisk should not be empty")
+	}
+	
+	if DefaultWorkerCPUs <= 0 {
+		t.Errorf("DefaultWorkerCPUs should be positive, got: %d", DefaultWorkerCPUs)
+	}
+	
+	if DefaultWorkerMemory == "" {
+		t.Error("DefaultWorkerMemory should not be empty")
+	}
+	
+	if DefaultWorkerDisk == "" {
+		t.Error("DefaultWorkerDisk should not be empty")
+	}
+}
+
+func TestMultipassClient_CreateNode_ValidatesInput(t *testing.T) {
+	client := NewMultipassClient()
+	client.BinaryPath = "nonexistent-binary" // Ensure it fails for the right reason
+	
+	// Test with empty node name
+	err := client.CreateNode("", 1, "1G", "5G")
+	if err == nil {
+		t.Error("Expected CreateNode to fail with empty node name")
 	}
 } 

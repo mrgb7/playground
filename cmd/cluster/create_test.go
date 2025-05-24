@@ -6,24 +6,24 @@ import (
 
 func TestConstants(t *testing.T) {
 	// Test that command constants are properly defined
-	if K3S_CREATE_MASTER_CMD == "" {
-		t.Error("K3S_CREATE_MASTER_CMD should not be empty")
+	if K3sCreateMasterCmd == "" {
+		t.Error("K3sCreateMasterCmd should not be empty")
 	}
 	
-	if GET_ACCESS_TOKEN_CMD == "" {
-		t.Error("GET_ACCESS_TOKEN_CMD should not be empty")
+	if GetAccessTokenCmd == "" {
+		t.Error("GetAccessTokenCmd should not be empty")
 	}
 	
-	if K3S_CREATE_WORKER_CMD == "" {
-		t.Error("K3S_CREATE_WORKER_CMD should not be empty")
+	if K3sCreateWorkerCmd == "" {
+		t.Error("K3sCreateWorkerCmd should not be empty")
 	}
 	
-	if KUBE_CONFIG_CMD == "" {
-		t.Error("KUBE_CONFIG_CMD should not be empty")
+	if KubeConfigCmd == "" {
+		t.Error("KubeConfigCmd should not be empty")
 	}
 	
-	if K3S_INSTALL_TIMEOUT <= 0 {
-		t.Errorf("K3S_INSTALL_TIMEOUT should be positive, got: %d", K3S_INSTALL_TIMEOUT)
+	if K3sInstallTimeout <= 0 {
+		t.Errorf("K3sInstallTimeout should be positive, got: %d", K3sInstallTimeout)
 	}
 }
 
