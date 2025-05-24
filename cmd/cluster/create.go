@@ -29,46 +29,7 @@ const (
 	K3S_CREATE_WORKER_CMD = `curl -sfL https://get.k3s.io | K3S_URL=https://%s:6443 K3S_TOKEN=%s  sh -`
 	KUBE_CONFIG_CMD       = `sudo cat /etc/rancher/k3s/k3s.yaml`
 	K3S_INSTALL_TIMEOUT   = 300 // 5 minutes timeout for K3S installation
-	
-	// Validation constraints
-	MinClusterSize     = 1
-	MaxClusterSize     = 10
-	MaxClusterNameLen  = 50
-	MinClusterNameLen  = 3
 )
-
-// validateClusterName validates the cluster name according to naming conventions
-func validateClusterName(name string) error {
-	if len(name) < MinClusterNameLen {
-		return fmt.Errorf("cluster name must be at least %d characters long", MinClusterNameLen)
-	}
-	if len(name) > MaxClusterNameLen {
-		return fmt.Errorf("cluster name must be no more than %d characters long", MaxClusterNameLen)
-	}
-	
-	// Check for valid characters (alphanumeric and hyphens, no spaces)
-	if !validClusterNameRegex.MatchString(name) {
-		return fmt.Errorf("cluster name can only contain alphanumeric characters and hyphens")
-	}
-	
-	// Cannot start or end with hyphen
-	if strings.HasPrefix(name, "-") || strings.HasSuffix(name, "-") {
-		return fmt.Errorf("cluster name cannot start or end with a hyphen")
-	}
-	
-	return nil
-}
-
-// validateClusterSize validates the cluster size is within acceptable limits
-func validateClusterSize(size int) error {
-	if size < MinClusterSize {
-		return fmt.Errorf("cluster size must be at least %d", MinClusterSize)
-	}
-	if size > MaxClusterSize {
-		return fmt.Errorf("cluster size cannot exceed %d nodes", MaxClusterSize)
-	}
-	return nil
-}
 
 var createCmd = &cobra.Command{
 	Use:   "create",
@@ -99,19 +60,19 @@ var createCmd = &cobra.Command{
 			return
 		}
 		masterNodeName := fmt.Sprintf("%s-master", cCreateName)
-		std, err := client.ExcuteShellWithTimeout(masterNodeName, K3S_CREATE_MASTER_CMD, K3S_INSTALL_TIMEOUT)
+		std, err := client.ExecuteShellWithTimeout(masterNodeName, K3sCreateMasterCmd, K3sInstallTimeoutSeconds)
 		if err != nil || std == "" {
 			logger.Errorln("Failed to create k3s on master: %v", err)
 			return
 		}
 
-		accessToken, err := client.ExcuteShell(masterNodeName, GET_ACCESS_TOKEN_CMD)
+		accessToken, err := client.ExecuteShell(masterNodeName, GetAccessTokenCmd)
 		if err != nil || accessToken == "" {
 			logger.Errorln("Failed to get access token: %v", err)
 			return
 		}
 		accessToken = strings.TrimSpace(accessToken) // Trim whitespace from accessToken
-		kubConfig, err := client.ExcuteShell(masterNodeName, KUBE_CONFIG_CMD)
+		kubConfig, err := client.ExecuteShell(masterNodeName, KubeConfigCmd)
 		if err != nil || kubConfig == "" {
 			logger.Errorln("Failed to get kube config: %v", err)
 			return
@@ -125,10 +86,10 @@ var createCmd = &cobra.Command{
 			wg.Add(1)
 			go func(i int) {
 				nodeName := fmt.Sprintf("%s-worker-%d", cCreateName, i+1)
-				_, err = client.ExcuteShellWithTimeout(
+				_, err = client.ExecuteShellWithTimeout(
 					nodeName,
-					fmt.Sprintf(K3S_CREATE_WORKER_CMD, masterIP, accessToken),
-					K3S_INSTALL_TIMEOUT,
+					fmt.Sprintf(K3sCreateWorkerCmd, masterIP, accessToken),
+					K3sInstallTimeoutSeconds,
 				)
 				if err != nil {
 					logger.Errorln("Failed to install K3S on worker node %s: %v", nodeName, err)
