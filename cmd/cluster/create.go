@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -35,6 +36,17 @@ var createCmd = &cobra.Command{
 	Short: "Create a new cluster",
 	Long:  `Create a new cluster with the specified configurations`,
 	Run: func(cmd *cobra.Command, args []string) {
+		// Validate inputs
+		if err := validateClusterName(cCreateName); err != nil {
+			logger.Errorf("Invalid cluster name: %v", err)
+			return
+		}
+		
+		if err := validateClusterSize(cCreateSize); err != nil {
+			logger.Errorf("Invalid cluster size: %v", err)
+			return
+		}
+		
 		var wg sync.WaitGroup
 		client := multipass.NewMultipassClient()
 		if !client.IsMultipassInstalled() {
@@ -48,19 +60,19 @@ var createCmd = &cobra.Command{
 			return
 		}
 		masterNodeName := fmt.Sprintf("%s-master", cCreateName)
-		std, err := client.ExcuteShellWithTimeout(masterNodeName, K3S_CREATE_MASTER_CMD, K3S_INSTALL_TIMEOUT)
+		std, err := client.ExecuteShellWithTimeout(masterNodeName, K3sCreateMasterCmd, K3sInstallTimeoutSeconds)
 		if err != nil || std == "" {
 			logger.Errorln("Failed to create k3s on master: %v", err)
 			return
 		}
 
-		accessToken, err := client.ExcuteShell(masterNodeName, GET_ACCESS_TOKEN_CMD)
+		accessToken, err := client.ExecuteShell(masterNodeName, GetAccessTokenCmd)
 		if err != nil || accessToken == "" {
 			logger.Errorln("Failed to get access token: %v", err)
 			return
 		}
 		accessToken = strings.TrimSpace(accessToken) // Trim whitespace from accessToken
-		kubConfig, err := client.ExcuteShell(masterNodeName, KUBE_CONFIG_CMD)
+		kubConfig, err := client.ExecuteShell(masterNodeName, KubeConfigCmd)
 		if err != nil || kubConfig == "" {
 			logger.Errorln("Failed to get kube config: %v", err)
 			return
@@ -75,10 +87,10 @@ var createCmd = &cobra.Command{
 			go func(i int) {
 				defer wg.Done()
 				nodeName := fmt.Sprintf("%s-worker-%d", cCreateName, i+1)
-				_, err := client.ExcuteShellWithTimeout(
+				_, err = client.ExcuteShellWithTimeout(
 					nodeName,
-					fmt.Sprintf(K3S_CREATE_WORKER_CMD, masterIP, accessToken),
-					K3S_INSTALL_TIMEOUT,
+					fmt.Sprintf(K3sCreateWorkerCmd, masterIP, accessToken),
+					K3sInstallTimeoutSeconds,
 				)
 				if err != nil {
 					logger.Errorln("Failed to install K3S on worker node %s: %v", nodeName, err)

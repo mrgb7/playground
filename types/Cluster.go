@@ -44,7 +44,7 @@ func (c *Cluster) SetKubeConfig() error {
 	if err != nil {
 		return fmt.Errorf("failed to get master node IP: %w", err)
 	}
-	res, err := cl.ExcuteShell(masterNodeName, "sudo cat /etc/rancher/k3s/k3s.yaml")
+	res, err := cl.ExecuteShell(masterNodeName, "sudo cat /etc/rancher/k3s/k3s.yaml")
 	if err != nil {
 		return fmt.Errorf("failed to get kubeconfig: %w", err)
 	}
