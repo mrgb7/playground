@@ -10,6 +10,26 @@ type Plugin interface {
 	Status() string
 }
 
+type Factory interface {
+	Plugin
+	FactoryInstall(kubeConfig, clusterName string, ensure ...bool) error
+	FactoryUninstall(kubeConfig, clusterName string, ensure ...bool) error
+}
+
+func CreatePluginsList(kubeConfig, masterClusterIP string) ([]Plugin, error) {
+	lb, err := NewLoadBalancer(kubeConfig, masterClusterIP)
+	if err != nil {
+		return nil, err
+	}
+	
+	return []Plugin{
+		NewArgocd(kubeConfig),
+		NewCertManager(kubeConfig),
+		lb,
+		&Nginx{},
+	}, nil
+}
+
 var List = []Plugin{
 	&Argocd{},
 	&CertManager{},

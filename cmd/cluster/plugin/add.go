@@ -1,9 +1,8 @@
 package plugin
 
 import (
-	"fmt"
-
 	"github.com/mrgb7/playground/internal/plugins"
+	"github.com/mrgb7/playground/pkg/logger"
 	"github.com/mrgb7/playground/types"
 	"github.com/spf13/cobra"
 )
@@ -23,36 +22,49 @@ var addCmd = &cobra.Command{
 		}
 
 		ip := c.GetMasterIP()
-
 		c.SetKubeConfig()
-		lb, err := plugins.NewLoadBalancer(c.KubeConfig, ip)
-		if err != nil {
-			panic(err)
-		}
 
-		plugins := []plugins.Plugin{
-			&plugins.Argocd{
-				KubeConfig: c.KubeConfig,
-			},
-			&plugins.CertManager{
-				KubeConfig: c.KubeConfig,
-			},
-			lb,
+		pluginsList, err := plugins.CreatePluginsList(c.KubeConfig, ip)
+		if err != nil {
+			logger.Error("Failed to create plugins list: %v", err)
+			return
 		}
 
 		found := false
-
-		for _, plugin := range plugins {
+		for _, plugin := range pluginsList {
 			if plugin.GetName() == pName {
 				found = true
-				err := plugin.Install()
-				if err != nil {
-					fmt.Printf("Error installing plugin: %v\n", err)
+				
+				if factory, ok := plugin.(plugins.Factory); ok {
+					err := factory.FactoryInstall(c.KubeConfig, c.Name)
+					if err != nil {
+						err = plugin.Install()
+						if err != nil {
+							logger.Error("Error installing plugin: %v", err)
+						} else {
+							logger.Info("Successfully installed %s", pName)
+						}
+					} else {
+						logger.Info("Successfully installed %s", pName)
+					}
+				} else {
+					err := plugin.Install()
+					if err != nil {
+						logger.Error("Error installing plugin: %v", err)
+					} else {
+						logger.Info("Successfully installed %s", pName)
+					}
 				}
+				break
 			}
 		}
+		
 		if !found {
-			fmt.Printf("Plugin %s not found\n", pName)
+			logger.Error("Plugin %s not found", pName)
+			logger.Info("Available plugins:")
+			for _, plugin := range pluginsList {
+				logger.Info("  - %s", plugin.GetName())
+			}
 		}
 	},
 }

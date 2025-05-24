@@ -17,6 +17,7 @@ import (
 
 type Argocd struct {
 	KubeConfig string
+	*BasePlugin
 }
 
 const (
@@ -31,6 +32,14 @@ const (
 	HTTPTimeoutSeconds = 30
 	MaxResponseSize    = 10 * 1024 * 1024
 )
+
+func NewArgocd(kubeConfig string) *Argocd {
+	argo := &Argocd{
+		KubeConfig: kubeConfig,
+	}
+	argo.BasePlugin = NewBasePlugin(kubeConfig, argo)
+	return argo
+}
 
 func (a *Argocd) GetName() string {
 	return "argocd"

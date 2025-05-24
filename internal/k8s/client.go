@@ -7,11 +7,13 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/rest"
 )
 
 type K8sClient struct {
 	Clientset *kubernetes.Clientset
 	Dynamic   *dynamic.DynamicClient
+	Config    *rest.Config
 }
 
 func NewK8sClient(kubeConfig string) (*K8sClient, error) {
@@ -33,6 +35,7 @@ func NewK8sClient(kubeConfig string) (*K8sClient, error) {
 	return &K8sClient{
 		Clientset: clientset,
 		Dynamic:   dynamicClient,
+		Config:    restConfig,
 	}, nil
 }
 

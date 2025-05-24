@@ -2,6 +2,7 @@ package logger
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/fatih/color"
@@ -104,4 +105,9 @@ func Print(format string, args ...interface{}) {
 // Println prints plain message with newline
 func Println(format string, args ...interface{}) {
 	fmt.Printf(format+"\n", args...)
+}
+
+// GetWriter returns an io.Writer for use with external libraries
+func GetWriter() io.Writer {
+	return os.Stdout
 }

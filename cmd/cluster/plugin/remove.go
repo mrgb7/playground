@@ -1,9 +1,8 @@
 package plugin
 
 import (
-	"fmt"
-
 	"github.com/mrgb7/playground/internal/plugins"
+	"github.com/mrgb7/playground/pkg/logger"
 	"github.com/mrgb7/playground/types"
 	"github.com/spf13/cobra"
 )
@@ -17,23 +16,49 @@ var removeCmd = &cobra.Command{
 			Name: cName,
 		}
 
+		ip := c.GetMasterIP()
 		c.SetKubeConfig()
 
-		plugins := []plugins.Plugin{
-			&plugins.Argocd{
-				KubeConfig: c.KubeConfig,
-			},
-			&plugins.CertManager{
-				KubeConfig: c.KubeConfig,
-			},
+		pluginsList, err := plugins.CreatePluginsList(c.KubeConfig, ip)
+		if err != nil {
+			logger.Error("Failed to create plugins list: %v", err)
+			return
 		}
 
-		for _, plugin := range plugins {
+		found := false
+		for _, plugin := range pluginsList {
 			if plugin.GetName() == pName {
-				err := plugin.Uninstall()
-				if err != nil {
-					fmt.Printf("Error uninstalling plugin: %v\n", err)
+				found = true
+				
+				if factory, ok := plugin.(plugins.Factory); ok {
+					err := factory.FactoryUninstall(c.KubeConfig, c.Name)
+					if err != nil {
+						err = plugin.Uninstall()
+						if err != nil {
+							logger.Error("Error uninstalling plugin: %v", err)
+						} else {
+							logger.Info("Successfully uninstalled %s", pName)
+						}
+					} else {
+						logger.Info("Successfully uninstalled %s", pName)
+					}
+				} else {
+					err := plugin.Uninstall()
+					if err != nil {
+						logger.Error("Error uninstalling plugin: %v", err)
+					} else {
+						logger.Info("Successfully uninstalled %s", pName)
+					}
 				}
+				break
+			}
+		}
+		
+		if !found {
+			logger.Error("Plugin %s not found", pName)
+			logger.Info("Available plugins:")
+			for _, plugin := range pluginsList {
+				logger.Info("  - %s", plugin.GetName())
 			}
 		}
 	},

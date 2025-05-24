@@ -5,4 +5,11 @@ type Installer interface {
 	UnInstall(options *InstallOptions) error
 }
 
-type InstallOptions struct{}
+type InstallOptions struct {
+	ApplicationName string
+	RepoURL         string
+	Path            string
+	TargetRevision  string
+	Namespace       string
+	Values          map[string]interface{}
+}

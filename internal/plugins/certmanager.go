@@ -12,6 +12,7 @@ import (
 
 type CertManager struct {
 	KubeConfig string
+	*BasePlugin
 }
 
 const (
@@ -22,6 +23,14 @@ const (
 	CertManagerNamespace     = "cert-manager"
 	CertManagerRepoName      = "jetstack"
 )
+
+func NewCertManager(kubeConfig string) *CertManager {
+	cm := &CertManager{
+		KubeConfig: kubeConfig,
+	}
+	cm.BasePlugin = NewBasePlugin(kubeConfig, cm)
+	return cm
+}
 
 func (c *CertManager) GetName() string {
 	return "cert-manager"

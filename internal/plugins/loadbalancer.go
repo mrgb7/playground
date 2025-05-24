@@ -27,6 +27,7 @@ type LoadBalancer struct {
 	KubeConfig      string
 	k8sClient       *k8s.K8sClient
 	MasterClusterIP string
+	*BasePlugin
 }
 
 func NewLoadBalancer(kubeConfig string, masterClusterIP string) (*LoadBalancer, error) {
@@ -34,11 +35,13 @@ func NewLoadBalancer(kubeConfig string, masterClusterIP string) (*LoadBalancer, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create k8s client: %w", err)
 	}
-	return &LoadBalancer{
+	lb := &LoadBalancer{
 		KubeConfig:      kubeConfig,
 		k8sClient:       c,
 		MasterClusterIP: masterClusterIP,
-	}, nil
+	}
+	lb.BasePlugin = NewBasePlugin(kubeConfig, lb)
+	return lb, nil
 }
 
 func (l *LoadBalancer) GetName() string {
