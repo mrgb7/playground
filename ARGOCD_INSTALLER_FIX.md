@@ -122,7 +122,7 @@ func (a *ArgoInstaller) authenticate() error {
     }
 
     // 4. Make authentication request to ArgoCD API
-    url := fmt.Sprintf("https://%s/api/v1/session", a.ServerAddress)
+    url := fmt.Sprintf("http://%s/api/v1/session", a.ServerAddress)
     req, err := http.NewRequest("POST", url, bytes.NewBuffer(reqBody))
     if err != nil {
         return fmt.Errorf("failed to create session request: %w", err)
@@ -207,7 +207,7 @@ func (a *ArgoInstaller) createApplication(options *InstallOptions) error {
     }
 
     // 4. Create HTTP request to ArgoCD API
-    url := fmt.Sprintf("https://%s/api/v1/applications", a.ServerAddress)
+    url := fmt.Sprintf("http://%s/api/v1/applications", a.ServerAddress)
     req, err := http.NewRequest("POST", url, bytes.NewBuffer(reqBody))
     if err != nil {
         return fmt.Errorf("failed to create application request: %w", err)
@@ -243,7 +243,7 @@ func (a *ArgoInstaller) deleteApplication(options *InstallOptions) error {
     }
     
     // 1. Create DELETE request
-    url := fmt.Sprintf("https://%s/api/v1/applications/%s", a.ServerAddress, options.ApplicationName)
+    url := fmt.Sprintf("http://%s/api/v1/applications/%s", a.ServerAddress, options.ApplicationName)
     req, err := http.NewRequest("DELETE", url, nil)
     if err != nil {
         return fmt.Errorf("failed to create delete request: %w", err)

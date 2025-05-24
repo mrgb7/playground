@@ -15,6 +15,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/portforward"
+	"k8s.io/client-go/transport/spdy"
 )
 
 type ArgoInstaller struct {
@@ -27,6 +29,8 @@ type ArgoInstaller struct {
 	k8sClient         *k8s.K8sClient
 	httpClient        *http.Client
 	authToken         string
+	stopChannel       chan struct{}
+	readyChannel      chan struct{}
 }
 
 type ArgoApplication struct {
@@ -116,12 +120,11 @@ func (a *ArgoInstaller) Install(options *InstallOptions) error {
 	logger.Info("Starting ArgoCD application installation...\n")
 	
 	if err := a.connectToArgoCD(); err != nil {
-		logger.Error("failed to connect to ArgoCD: %v", err)
 		return fmt.Errorf("failed to connect to ArgoCD: %w", err)
 	}
+	defer a.cleanup()
 
 	if err := a.createApplication(options); err != nil {
-		logger.Error("failed to create ArgoCD application: %v", err)
 		return fmt.Errorf("failed to create ArgoCD application: %w", err)
 	}
 
@@ -139,6 +142,7 @@ func (a *ArgoInstaller) UnInstall(options *InstallOptions) error {
 	if err := a.connectToArgoCD(); err != nil {
 		return fmt.Errorf("failed to connect to ArgoCD: %w", err)
 	}
+	defer a.cleanup()
 
 	if err := a.deleteApplication(options); err != nil {
 		return fmt.Errorf("failed to delete ArgoCD application: %w", err)
@@ -315,6 +319,63 @@ func (a *ArgoInstaller) setupPortForward() error {
 		return fmt.Errorf("ArgoCD server pod is not running: %s", pod.Status.Phase)
 	}
 
+	logger.Info("Setting up port forward to ArgoCD server pod: %s", pod.Name)
+
+	// Create the port forward request URL
+	req := a.k8sClient.Clientset.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Namespace(a.ArgoNamespace).
+		Name(pod.Name).
+		SubResource("portforward")
+
+	// Create SPDY transport
+	transport, upgrader, err := spdy.RoundTripperFor(a.k8sClient.Config)
+	if err != nil {
+		return fmt.Errorf("failed to create SPDY transport: %w", err)
+	}
+
+	// Set up port forward
+	ports := []string{fmt.Sprintf("%d:8080", a.LocalPort)}
+	
+	a.stopChannel = make(chan struct{}, 1)
+	a.readyChannel = make(chan struct{}, 1)
+	
+	// Create a buffer for output
+	out := &bytes.Buffer{}
+	errOut := &bytes.Buffer{}
+
+	// Create SPDY dialer
+	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", req.URL())
+
+	// Create port forwarder
+	forwarder, err := portforward.New(
+		dialer,
+		ports,
+		a.stopChannel,
+		a.readyChannel,
+		out,
+		errOut,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create port forwarder: %w", err)
+	}
+
+	// Start port forwarding in a goroutine
+	go func() {
+		if err := forwarder.ForwardPorts(); err != nil {
+			logger.Error("Port forwarding failed: %v", err)
+		}
+	}()
+
+	// Wait for port forward to be ready
+	select {
+	case <-a.readyChannel:
+		logger.Info("Port forward established successfully")
+	case <-time.After(10 * time.Second):
+		close(a.stopChannel)
+		return fmt.Errorf("timeout waiting for port forward to be ready")
+	}
+
 	a.ServerAddress = fmt.Sprintf("localhost:%d", a.LocalPort)
 	return nil
 }
@@ -343,4 +404,11 @@ func (a *ArgoInstaller) ValidateArgoConnection() error {
 func (a *ArgoInstaller) cleanup() {
 	a.authToken = ""
 	a.ServerAddress = ""
+	
+	// Terminate port forward if running
+	if a.stopChannel != nil {
+		logger.Info("Terminating port forward process...")
+		close(a.stopChannel)
+		a.stopChannel = nil
+	}
 }
