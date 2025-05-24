@@ -33,6 +33,16 @@ type MultipassClient struct {
 	BinaryPath string
 }
 
+const (
+	// Default node specifications
+	DefaultMasterCPUs    = 2
+	DefaultMasterMemory  = "2G"
+	DefaultMasterDisk    = "10G"
+	DefaultWorkerCPUs    = 1
+	DefaultWorkerMemory  = "1G"
+	DefaultWorkerDisk    = "5G"
+)
+
 func NewMultipassClient() *MultipassClient {
 	return &MultipassClient{
 		BinaryPath: "multipass",
@@ -51,7 +61,7 @@ func (m *MultipassClient) CreateCluster(clusterName string, nodeCount int, wg *s
 	wg.Add(1)
 	go func(name string) {
 		defer wg.Done()
-		err := m.CreateNode(name, 2, "2G", "10G")
+		err := m.CreateNode(name, DefaultMasterCPUs, DefaultMasterMemory, DefaultMasterDisk)
 		if err != nil {
 			logger.Error("failed to create master node %s: %v", name, err)
 			errChan <- fmt.Errorf("failed to create master node %s: %w", name, err)
@@ -64,7 +74,7 @@ func (m *MultipassClient) CreateCluster(clusterName string, nodeCount int, wg *s
 		go func(workerIndex int) {
 			defer wg.Done()
 			nodeName := fmt.Sprintf("%s-worker-%d", clusterName, workerIndex)
-			err := m.CreateNode(nodeName, 1, "1G", "5G")
+			err := m.CreateNode(nodeName, DefaultWorkerCPUs, DefaultWorkerMemory, DefaultWorkerDisk)
 			if err != nil {
 				logger.Errorln("failed to create worker node %s: %v", nodeName, err)
 				errChan <- fmt.Errorf("failed to create worker node %s: %w", nodeName, err)
@@ -203,11 +213,11 @@ func (m *MultipassClient) GetNodeIP(name string) (string, error) {
 	return ip, nil
 }
 
-func (m *MultipassClient) ExcuteShell(name string, command string) (string, error) {
-	return m.ExcuteShellWithTimeout(name, command, 0) // No timeout by default
+func (m *MultipassClient) ExecuteShell(name string, command string) (string, error) {
+	return m.ExecuteShellWithTimeout(name, command, 0) // No timeout by default
 }
 
-func (m *MultipassClient) ExcuteShellWithTimeout(name string, command string, timeoutSeconds int, envs ...string) (string, error) {
+func (m *MultipassClient) ExecuteShellWithTimeout(name string, command string, timeoutSeconds int, envs ...string) (string, error) {
 	ctx := context.Background()
 	var cancel context.CancelFunc
 

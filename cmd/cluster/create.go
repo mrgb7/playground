@@ -23,11 +23,23 @@ var (
 )
 
 const (
-	K3S_CREATE_MASTER_CMD = `curl -sfL https://get.k3s.io | sh -s - --disable=servicelb --disable=traefik`
-	GET_ACCESS_TOKEN_CMD  = `sudo cat /var/lib/rancher/k3s/server/node-token`
-	K3S_CREATE_WORKER_CMD = `curl -sfL https://get.k3s.io | K3S_URL=https://%s:6443 K3S_TOKEN=%s  sh -`
-	KUBE_CONFIG_CMD       = `sudo cat /etc/rancher/k3s/k3s.yaml`
-	K3S_INSTALL_TIMEOUT   = 300 // 5 minutes timeout for K3S installation
+	// K3s installation commands
+	K3sCreateMasterCmd = `curl -sfL https://get.k3s.io | sh -s - --disable=servicelb --disable=traefik`
+	GetAccessTokenCmd  = `sudo cat /var/lib/rancher/k3s/server/node-token`
+	K3sCreateWorkerCmd = `curl -sfL https://get.k3s.io | K3S_URL=https://%s:6443 K3S_TOKEN=%s  sh -`
+	KubeConfigCmd      = `sudo cat /etc/rancher/k3s/k3s.yaml`
+	
+	// Timeouts and resource specifications
+	K3sInstallTimeoutSeconds = 300 // 5 minutes timeout for K3S installation
+	MasterNodeCPUs          = 2
+	MasterNodeMemory        = "2G"
+	MasterNodeDisk          = "10G"
+	WorkerNodeCPUs          = 1
+	WorkerNodeMemory        = "1G"
+	WorkerNodeDisk          = "5G"
+	
+	// Kubernetes API port
+	K3sAPIPort = 6443
 )
 
 var createCmd = &cobra.Command{
@@ -48,19 +60,19 @@ var createCmd = &cobra.Command{
 			return
 		}
 		masterNodeName := fmt.Sprintf("%s-master", cCreateName)
-		std, err := client.ExcuteShellWithTimeout(masterNodeName, K3S_CREATE_MASTER_CMD, K3S_INSTALL_TIMEOUT)
+		std, err := client.ExecuteShellWithTimeout(masterNodeName, K3sCreateMasterCmd, K3sInstallTimeoutSeconds)
 		if err != nil || std == "" {
 			logger.Errorln("Failed to create k3s on master: %v", err)
 			return
 		}
 
-		accessToken, err := client.ExcuteShell(masterNodeName, GET_ACCESS_TOKEN_CMD)
+		accessToken, err := client.ExecuteShell(masterNodeName, GetAccessTokenCmd)
 		if err != nil || accessToken == "" {
 			logger.Errorln("Failed to get access token: %v", err)
 			return
 		}
 		accessToken = strings.TrimSpace(accessToken) // Trim whitespace from accessToken
-		kubConfig, err := client.ExcuteShell(masterNodeName, KUBE_CONFIG_CMD)
+		kubConfig, err := client.ExecuteShell(masterNodeName, KubeConfigCmd)
 		if err != nil || kubConfig == "" {
 			logger.Errorln("Failed to get kube config: %v", err)
 			return
@@ -74,10 +86,10 @@ var createCmd = &cobra.Command{
 			wg.Add(1)
 			go func(i int) {
 				nodeName := fmt.Sprintf("%s-worker-%d", cCreateName, i+1)
-				_, err = client.ExcuteShellWithTimeout(
+				_, err = client.ExecuteShellWithTimeout(
 					nodeName,
-					fmt.Sprintf(K3S_CREATE_WORKER_CMD, masterIP, accessToken),
-					K3S_INSTALL_TIMEOUT,
+					fmt.Sprintf(K3sCreateWorkerCmd, masterIP, accessToken),
+					K3sInstallTimeoutSeconds,
 				)
 				if err != nil {
 					logger.Errorln("Failed to install K3S on worker node %s: %v", nodeName, err)
