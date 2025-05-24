@@ -167,11 +167,7 @@ func (m *MultipassClient) DeleteCluster(clusterName string, wg *sync.WaitGroup) 
 	
 	// Return combined errors if any occurred
 	if len(errors) > 0 {
-		var errorMessages []string
-		for _, err := range errors {
-			errorMessages = append(errorMessages, err.Error())
-		}
-		return fmt.Errorf("deletion errors: %s", strings.Join(errorMessages, "; "))
+		return errors.Join(errors...)
 	}
 
 	return nil
