@@ -116,7 +116,7 @@ func (a *Argocd) getValuesContent() (map[string]interface{}, error) {
 	
 	// Log content hash for integrity verification (optional)
 	hash := sha256.Sum256(content)
-	logger.Debugln("ArgoCD values file SHA256: %x", hash)
+	logger.Debugf("ArgoCD values file SHA256: %x", hash)
 	
 	var values map[string]interface{}
 	if err := yaml.Unmarshal(content, &values); err != nil {
