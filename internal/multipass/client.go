@@ -147,7 +147,7 @@ func (m *MultipassClient) DeleteCluster(clusterName string, wg *sync.WaitGroup) 
 				errChan <- fmt.Errorf("failed to delete node %s: %w", name, err)
 				return
 			}
-			logger.Debugln("Successfully deleted node: %s", name)
+			logger.Debugf("Successfully deleted node: %s", name)
 		}(instanceName)
 	}
 	
