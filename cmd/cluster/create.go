@@ -73,6 +73,7 @@ var createCmd = &cobra.Command{
 		for i := 0; i < cCreateSize-1; i++ {
 			wg.Add(1)
 			go func(i int) {
+				defer wg.Done()
 				nodeName := fmt.Sprintf("%s-worker-%d", cCreateName, i+1)
 				_, err = client.ExcuteShellWithTimeout(
 					nodeName,
