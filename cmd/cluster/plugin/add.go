@@ -38,12 +38,7 @@ var addCmd = &cobra.Command{
 				if factory, ok := plugin.(plugins.Factory); ok {
 					err := factory.FactoryInstall(c.KubeConfig, c.Name)
 					if err != nil {
-						err = plugin.Install()
-						if err != nil {
-							logger.Error("Error installing plugin: %v", err)
-						} else {
-							logger.Info("Successfully installed %s", pName)
-						}
+						logger.Error("Error installing plugin: %v", err)
 					} else {
 						logger.Info("Successfully installed %s", pName)
 					}

@@ -33,12 +33,7 @@ var removeCmd = &cobra.Command{
 				if factory, ok := plugin.(plugins.Factory); ok {
 					err := factory.FactoryUninstall(c.KubeConfig, c.Name)
 					if err != nil {
-						err = plugin.Uninstall()
-						if err != nil {
-							logger.Error("Error uninstalling plugin: %v", err)
-						} else {
-							logger.Info("Successfully uninstalled %s", pName)
-						}
+						logger.Error("Error uninstalling plugin: %v", err)
 					} else {
 						logger.Info("Successfully uninstalled %s", pName)
 					}

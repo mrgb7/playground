@@ -46,20 +46,11 @@ func (a *Argocd) GetName() string {
 }
 
 func (a *Argocd) Install(ensure ...bool) error {
-	inst, err := NewInstaller(a, a.KubeConfig, "")
+	i, err := a.GetInstaller()
 	if err != nil {
-		return fmt.Errorf("failed to get installer from factory: %w", err)
+		return fmt.Errorf("failed to get installer: %w", err)
 	}
-
-	_, isArgo := inst.(*installer.ArgoInstaller)
-	
-	if isArgo {
-		options := NewArgoOptions(a)
-		err = inst.Install(options)
-	} else {
-		err = inst.Install(&installer.InstallOptions{})
-	}
-	
+	err = i.Install(&installer.InstallOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to install argocd: %w", err)
 	}
@@ -67,20 +58,11 @@ func (a *Argocd) Install(ensure ...bool) error {
 }
 
 func (a *Argocd) Uninstall(ensure ...bool) error {
-	inst, err := NewInstaller(a, a.KubeConfig, "")
+	i, err := a.GetInstaller()
 	if err != nil {
-		return fmt.Errorf("failed to get installer from factory: %w", err)
+		return fmt.Errorf("failed to get installer: %w", err)
 	}
-
-	_, isArgo := inst.(*installer.ArgoInstaller)
-	
-	if isArgo {
-		options := NewArgoOptions(a)
-		err = inst.UnInstall(options)
-	} else {
-		err = inst.UnInstall(&installer.InstallOptions{})
-	}
-	
+	err = i.UnInstall(&installer.InstallOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to uninstall argocd: %w", err)
 	}
