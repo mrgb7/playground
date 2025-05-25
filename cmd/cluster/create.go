@@ -56,6 +56,9 @@ const (
 	MaxClusterSize       = 10  // maximum number of nodes allowed in cluster
 	MaxClusterNameLength = 63  // maximum length for cluster name (DNS label limit)
 	MinClusterSize       = 1   // minimum number of nodes in cluster
+	DefaultMasterCPUs    = 2   // default number of CPUs for master node
+	DefaultWorkerCPUs    = 2   // default number of CPUs for worker nodes
+	MaxCPUCount          = 32  // maximum number of CPUs per node
 )
 
 func validateClusterName(name string) error {
@@ -96,8 +99,8 @@ func validateCPUCount(cpus int, nodeType string) error {
 	if cpus < 1 {
 		return fmt.Errorf("%s CPU count must be at least 1", nodeType)
 	}
-	if cpus > 32 {
-		return fmt.Errorf("%s CPU count cannot exceed 32", nodeType)
+	if cpus > MaxCPUCount {
+		return fmt.Errorf("%s CPU count cannot exceed %d", nodeType, MaxCPUCount)
 	}
 	return nil
 }
@@ -192,7 +195,10 @@ func createCluster(config *ClusterConfig) error {
 func executeClusterCreation(client multipass.Client, config *ClusterConfig) error {
 	var wg sync.WaitGroup
 
-	if err := client.CreateCluster(config.Name, config.Size, config.MasterCPUs, config.MasterMemory, config.MasterDisk, config.WorkerCPUs, config.WorkerMemory, config.WorkerDisk, &wg); err != nil {
+	if err := client.CreateCluster(
+		config.Name, config.Size, config.MasterCPUs, config.MasterMemory, config.MasterDisk,
+		config.WorkerCPUs, config.WorkerMemory, config.WorkerDisk, &wg,
+	); err != nil {
 		return fmt.Errorf("failed to create cluster: %w", err)
 	}
 
@@ -389,10 +395,10 @@ func init() {
 	createCmd.Flags().IntVarP(&cCreateSize, "size", "s", 1, "Number of nodes in the cluster")
 	createCmd.Flags().BoolVarP(&withCoreComponents, "with-core-component", "c", false,
 		"Install core components (nginx,cert-manager)")
-	createCmd.Flags().IntVarP(&masterCPUs, "master-cpus", "m", 2, "Number of CPUs for the master node")
+	createCmd.Flags().IntVarP(&masterCPUs, "master-cpus", "m", DefaultMasterCPUs, "Number of CPUs for the master node")
 	createCmd.Flags().StringVarP(&masterMemory, "master-memory", "M", "2G", "Memory for the master node")
 	createCmd.Flags().StringVarP(&masterDisk, "master-disk", "D", "20G", "Disk for the master node")
-	createCmd.Flags().IntVarP(&workerCPUs, "worker-cpus", "w", 2, "Number of CPUs for each worker node")
+	createCmd.Flags().IntVarP(&workerCPUs, "worker-cpus", "w", DefaultWorkerCPUs, "Number of CPUs for each worker node")
 	createCmd.Flags().StringVarP(&workerMemory, "worker-memory", "W", "2G", "Memory for each worker node")
 	createCmd.Flags().StringVarP(&workerDisk, "worker-disk", "d", "20G", "Disk for each worker node")
 	if err := createCmd.MarkFlagRequired("name"); err != nil {

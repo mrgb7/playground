@@ -16,7 +16,8 @@ import (
 
 type Client interface {
 	IsMultipassInstalled() bool
-	CreateCluster(clusterName string, nodeCount int, masterCPUs int, masterMemory, masterDisk string, workerCPUs int, workerMemory, workerDisk string, wg *sync.WaitGroup) error
+	CreateCluster(clusterName string, nodeCount int, masterCPUs int, masterMemory, masterDisk string,
+		workerCPUs int, workerMemory, workerDisk string, wg *sync.WaitGroup) error
 	DeleteCluster(clusterName string, wg *sync.WaitGroup) error
 	ListClusters() ([]string, error)
 	CreateNode(name string, cpus int, memory string, disk string) error
@@ -69,7 +70,10 @@ func (m *MultipassClient) IsMultipassInstalled() bool {
 	return err == nil
 }
 
-func (m *MultipassClient) CreateCluster(clusterName string, nodeCount int, masterCPUs int, masterMemory, masterDisk string, workerCPUs int, workerMemory, workerDisk string, wg *sync.WaitGroup) error {
+func (m *MultipassClient) CreateCluster(
+	clusterName string, nodeCount int, masterCPUs int, masterMemory, masterDisk string,
+	workerCPUs int, workerMemory, workerDisk string, wg *sync.WaitGroup,
+) error {
 	masterName := fmt.Sprintf("%s-master", clusterName)
 	errChan := make(chan error, nodeCount)
 

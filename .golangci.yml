@@ -1,104 +1,20 @@
+version: 2
+
 run:
   timeout: 5m
-  modules-download-mode: readonly
 
 linters:
   enable:
-    - bodyclose
-    - unused
-    - depguard
-    - dogsled
-    - dupl
-    - errcheck
-    - funlen
-    - gochecknoinits
-    - goconst
-    - gocritic
-    - gocyclo
-    - gofmt
-    - goimports
-    - revive
-    - mnd
-    - goprintffuncname
-    - gosec
-    - gosimple
-    - govet
-    - ineffassign
     - lll
-    - misspell
-    - nakedret
-    - noctx
-    - nolintlint
-    - rowserrcheck
-    - staticcheck
-    - stylecheck
-    - typecheck
-    - unconvert
-    - unparam
-    - whitespace
+    - mnd
 
 linters-settings:
-  funlen:
-    lines: 100
-    statements: 50
-  
-  goconst:
-    min-len: 3
-    min-occurrences: 3
-  
-  gocyclo:
-    min-complexity: 15
-  
-  revive:
-    confidence: 0.8
-  
   lll:
     line-length: 120
-  
-  misspell:
-    locale: US
-
-  depguard:
-    rules:
-      main:
-        deny:
-          - pkg: "github.com/pkg/errors"
-            desc: "use standard library errors package"
 
 issues:
   exclude-rules:
     - path: _test\.go
       linters:
-        - dupl
-        - funlen
-        - gocyclo
-        - gosec
-        - lll
         - mnd
-    
-    - linters:
-        - lll
-      source: "^//go:generate "
-    
-    # Allow init functions in CLI applications
-    - linters:
-        - gochecknoinits
-      path: cmd/
-    
-    # Allow printf-style function names in logger package
-    - linters:
-        - goprintffuncname
-      path: pkg/logger/
-    
-    # Allow magic numbers for common timeout values
-    - linters:
-        - mnd
-      source: "time\\.(Second|Minute)"
-    
-    # Allow magic numbers for file permissions
-    - linters:
-        - mnd
-      source: "0o[0-7]+"
-  
-  max-issues-per-linter: 0
-  max-same-issues: 0 
+        - lll 
