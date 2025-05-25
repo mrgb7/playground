@@ -50,7 +50,6 @@ func (b *BasePlugin) UnifiedInstall(kubeConfig, clusterName string, ensure ...bo
 		return err
 	}
 
-	// Record the installer type after successful installation
 	tracker, trackerErr := NewInstallerTracker(kubeConfig)
 	if trackerErr != nil {
 		logger.Warnln("Failed to create installer tracker after installing %s: %v", b.plugin.GetName(), trackerErr)
@@ -77,7 +76,6 @@ func (b *BasePlugin) UnifiedUninstall(kubeConfig, clusterName string, ensure ...
 		return err
 	}
 
-	// Remove the installer tracking record after successful uninstallation
 	tracker, trackerErr := NewInstallerTracker(kubeConfig)
 	if trackerErr != nil {
 		logger.Warnln("Failed to create installer tracker after uninstalling %s: %v", b.plugin.GetName(), trackerErr)
