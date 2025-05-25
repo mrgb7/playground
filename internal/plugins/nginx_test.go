@@ -125,7 +125,7 @@ func TestNginx_Constants(t *testing.T) {
 func TestNginx_Status_InvalidKubeConfig(t *testing.T) {
 	nginx := NewNginx("invalid-config")
 	status := nginx.Status()
-	expected := "UNKNOWN"
+	expected := StatusUnknown
 	if status != expected {
 		t.Errorf("expected status %s for invalid config, got %s", expected, status)
 	}
@@ -134,7 +134,7 @@ func TestNginx_Status_InvalidKubeConfig(t *testing.T) {
 func TestNginx_Status_EmptyKubeConfig(t *testing.T) {
 	nginx := NewNginx("")
 	status := nginx.Status()
-	expected := "UNKNOWN"
+	expected := StatusUnknown
 	if status != expected {
 		t.Errorf("expected status %s for empty config, got %s", expected, status)
 	}

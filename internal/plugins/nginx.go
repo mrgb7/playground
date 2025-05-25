@@ -12,6 +12,8 @@ const (
 	DefaultNginxReplicas = 2
 	NginxNamespace       = "ingress-nginx"
 	NginxChartVersion    = "4.11.3"
+	NginxChartName       = "ingress-nginx"
+	NginxRepoName        = "ingress-nginx"
 )
 
 type Nginx struct {
@@ -42,13 +44,13 @@ func (n *Nginx) Uninstall(kubeConfig, clusterName string, ensure ...bool) error 
 func (n *Nginx) Status() string {
 	if n.KubeConfig == "" {
 		logger.Errorln("kubeConfig is empty")
-		return "UNKNOWN"
+		return StatusUnknown
 	}
 
 	c, err := k8s.NewK8sClient(n.KubeConfig)
 	if err != nil {
 		logger.Errorln("failed to create k8s client: %v", err)
-		return "UNKNOWN"
+		return StatusUnknown
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -71,7 +73,7 @@ func (n *Nginx) GetVersion() string {
 }
 
 func (n *Nginx) GetChartName() string {
-	return "ingress-nginx"
+	return NginxChartName
 }
 
 func (n *Nginx) GetRepository() string {
@@ -79,7 +81,7 @@ func (n *Nginx) GetRepository() string {
 }
 
 func (n *Nginx) GetRepoName() string {
-	return "ingress-nginx"
+	return NginxRepoName
 }
 
 func (n *Nginx) GetChartValues() map[string]interface{} {
