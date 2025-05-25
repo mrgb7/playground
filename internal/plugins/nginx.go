@@ -81,10 +81,6 @@ func (n *Nginx) GetChartValues() map[string]interface{} {
 			"replicaCount": DefaultNginxReplicas,
 			"service": map[string]interface{}{
 				"type": "LoadBalancer",
-				"annotations": map[string]interface{}{
-					"service.beta.kubernetes.io/aws-load-balancer-type": "nlb",
-					"service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled": "true",
-				},
 			},
 			"config": map[string]interface{}{
 				"enable-vts-status":     "true",

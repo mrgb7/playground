@@ -96,18 +96,6 @@ func TestNginx_GetChartValues(t *testing.T) {
 		t.Errorf("expected service type LoadBalancer, got %v", serviceType)
 	}
 
-	// Check that annotations exist for LoadBalancer
-	annotations, ok := service["annotations"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("annotations should exist for LoadBalancer service")
-	}
-
-	// Check for AWS LoadBalancer type annotation
-	lbType, ok := annotations["service.beta.kubernetes.io/aws-load-balancer-type"].(string)
-	if !ok || lbType != "nlb" {
-		t.Errorf("expected AWS LoadBalancer type nlb, got %v", lbType)
-	}
-
 	// Check that default backend is enabled
 	defaultBackend, ok := values["defaultBackend"].(map[string]interface{})
 	if !ok {
