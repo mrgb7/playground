@@ -66,6 +66,30 @@ func IsArgoCDRunning(kubeConfig string) bool {
 }
 
 func NewInstaller(plugin Plugin, kubeConfig, clusterName string) (installer.Installer, error) {
+	// First check if there's recorded installer information for this plugin
+	tracker, err := NewInstallerTracker(kubeConfig)
+	if err != nil {
+		logger.Warnln("Failed to create installer tracker: %v", err)
+		// Continue with legacy logic if tracker fails
+	} else {
+		recordedInstaller, err := tracker.GetPluginInstaller(plugin.GetName())
+		if err != nil {
+			logger.Warnln("Failed to get recorded installer for plugin %s: %v", plugin.GetName(), err)
+		} else if recordedInstaller != "" {
+			// Use the recorded installer type
+			logger.Infoln("Using recorded installer type '%s' for plugin '%s'", recordedInstaller, plugin.GetName())
+			switch recordedInstaller {
+			case InstallerTypeArgoCD:
+				return installer.NewArgoInstaller(kubeConfig, clusterName)
+			case InstallerTypeHelm:
+				return installer.NewHelmInstaller(kubeConfig)
+			default:
+				logger.Warnln("Unknown recorded installer type '%s' for plugin '%s', falling back to logic", recordedInstaller, plugin.GetName())
+			}
+		}
+	}
+
+	// Fall back to original logic if no tracking info or tracking fails
 	if IsArgoCDRunning(kubeConfig) {
 		argoInstaller, err := installer.NewArgoInstaller(kubeConfig, clusterName)
 		if err != nil {
