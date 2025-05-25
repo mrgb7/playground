@@ -101,7 +101,7 @@ func (a *Argocd) Status() string {
 	c, err := k8s.NewK8sClient(a.KubeConfig)
 	if err != nil {
 		logger.Errorln("failed to create k8s client: %v", err)
-		return "UNKNOWN"
+		return StatusUnknown
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

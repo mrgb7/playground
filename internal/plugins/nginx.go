@@ -1,43 +1,79 @@
 package plugins
 
-import "github.com/mrgb7/playground/internal/installer"
+import (
+	"context"
+	"time"
+
+	"github.com/mrgb7/playground/internal/k8s"
+	"github.com/mrgb7/playground/pkg/logger"
+)
 
 const (
 	DefaultNginxReplicas = 2
+	NginxNamespace       = "ingress-nginx"
+	NginxChartVersion    = "4.11.3"
+	NginxChartName       = "ingress-nginx"
+	NginxRepoName        = "ingress-nginx"
 )
 
-type Nginx struct{}
-
-func (n *Nginx) GetName() string {
-	return "nginx"
+type Nginx struct {
+	KubeConfig string
+	*BasePlugin
 }
 
-func (n *Nginx) GetInstaller() (installer.Installer, error) {
-	return nil, nil
+func NewNginx(kubeConfig string) *Nginx {
+	nginx := &Nginx{
+		KubeConfig: kubeConfig,
+	}
+	nginx.BasePlugin = NewBasePlugin(kubeConfig, nginx)
+	return nginx
+}
+
+func (n *Nginx) GetName() string {
+	return "nginx-ingress"
 }
 
 func (n *Nginx) Install(kubeConfig, clusterName string, ensure ...bool) error {
-	return nil
+	return n.UnifiedInstall(kubeConfig, clusterName, ensure...)
 }
 
 func (n *Nginx) Uninstall(kubeConfig, clusterName string, ensure ...bool) error {
-	return nil
+	return n.UnifiedUninstall(kubeConfig, clusterName, ensure...)
 }
 
 func (n *Nginx) Status() string {
-	return "nginx is running"
+	if n.KubeConfig == "" {
+		logger.Errorf("kubeConfig is empty")
+		return StatusUnknown
+	}
+
+	c, err := k8s.NewK8sClient(n.KubeConfig)
+	if err != nil {
+		logger.Errorf("failed to create k8s client: %v", err)
+		return StatusUnknown
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	ns, err := c.GetNameSpace(NginxNamespace, ctx)
+	if ns == "" || err != nil {
+		logger.Debugf("nginx namespace not found or error occurred: %v", err)
+		return StatusNotInstalled
+	}
+	return n.GetName() + " is " + StatusRunning
 }
 
 func (n *Nginx) GetNamespace() string {
-	return "nginx"
+	return NginxNamespace
 }
 
 func (n *Nginx) GetVersion() string {
-	return "1.21.6"
+	return NginxChartVersion
 }
 
 func (n *Nginx) GetChartName() string {
-	return "nginx-ingress"
+	return NginxChartName
 }
 
 func (n *Nginx) GetRepository() string {
@@ -45,7 +81,7 @@ func (n *Nginx) GetRepository() string {
 }
 
 func (n *Nginx) GetRepoName() string {
-	return "ingress-nginx"
+	return NginxRepoName
 }
 
 func (n *Nginx) GetChartValues() map[string]interface{} {
@@ -56,8 +92,20 @@ func (n *Nginx) GetChartValues() map[string]interface{} {
 				"type": "LoadBalancer",
 			},
 			"config": map[string]interface{}{
-				"enable-vts-status": "true",
+				"enable-vts-status":          "true",
+				"use-forwarded-headers":      "true",
+				"compute-full-forwarded-for": "true",
+				"use-proxy-protocol":         "false",
 			},
+			"metrics": map[string]interface{}{
+				"enabled": true,
+				"serviceMonitor": map[string]interface{}{
+					"enabled": false,
+				},
+			},
+		},
+		"defaultBackend": map[string]interface{}{
+			"enabled": true,
 		},
 	}
 }

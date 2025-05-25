@@ -62,7 +62,7 @@ func (c *CertManager) Status() string {
 	client, err := k8s.NewK8sClient(c.KubeConfig)
 	if err != nil {
 		logger.Errorln("failed to create k8s client: %v", err)
-		return "UNKNOWN"
+		return StatusUnknown
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
