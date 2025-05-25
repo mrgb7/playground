@@ -11,6 +11,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 const (
@@ -161,6 +162,11 @@ func (i *Ingress) configureArgoCDIngress() error {
 
 	logger.Infoln("ArgoCD found, configuring ingress...")
 
+	isTLSAvailable := i.isTLSClusterIssuerAvailable()
+	if isTLSAvailable {
+		logger.Infoln("TLS cluster issuer found, enabling HTTPS for ArgoCD")
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -170,40 +176,81 @@ func (i *Ingress) configureArgoCDIngress() error {
 		return fmt.Errorf("failed to check existing ArgoCD ingress: %w", err)
 	}
 
+	hostname := fmt.Sprintf("argocd.%s.local", i.ClusterName)
+
 	if err == nil {
-		logger.Infoln("Updating existing ArgoCD ingress with cluster domain...")
+		logger.Infoln("Updating existing ArgoCD ingress with cluster domain and TLS...")
 
 		if len(existingIngress.Spec.Rules) > 0 {
-			existingIngress.Spec.Rules[0].Host = fmt.Sprintf("argocd.%s.local", i.ClusterName)
+			existingIngress.Spec.Rules[0].Host = hostname
 		}
 
-		if len(existingIngress.Spec.TLS) > 0 && len(existingIngress.Spec.TLS[0].Hosts) > 0 {
-			existingIngress.Spec.TLS[0].Hosts[0] = fmt.Sprintf("argocd.%s.local", i.ClusterName)
+		if isTLSAvailable {
+			if existingIngress.Annotations == nil {
+				existingIngress.Annotations = make(map[string]string)
+			}
+			existingIngress.Annotations["cert-manager.io/cluster-issuer"] = "local-ca-issuer"
+			existingIngress.Annotations["nginx.ingress.kubernetes.io/ssl-redirect"] = "true"
+			existingIngress.Annotations["nginx.ingress.kubernetes.io/force-ssl-redirect"] = "true"
+
+			existingIngress.Spec.TLS = []networkingv1.IngressTLS{
+				{
+					Hosts:      []string{hostname},
+					SecretName: "argocd-server-tls",
+				},
+			}
+		} else {
+			if existingIngress.Annotations != nil {
+				existingIngress.Annotations["nginx.ingress.kubernetes.io/ssl-redirect"] = "false"
+				existingIngress.Annotations["nginx.ingress.kubernetes.io/force-ssl-redirect"] = "false"
+			}
 		}
 
 		_, err = i.k8sClient.Clientset.NetworkingV1().Ingresses("argocd").Update(ctx, existingIngress, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to update existing ArgoCD ingress: %w", err)
 		}
-		logger.Successln("Updated existing ArgoCD ingress with host: argocd.%s.local", i.ClusterName)
+		if isTLSAvailable {
+			logger.Successln("Updated existing ArgoCD ingress with HTTPS: https://argocd.%s.local", i.ClusterName)
+		} else {
+			logger.Successln("Updated existing ArgoCD ingress with host: argocd.%s.local", i.ClusterName)
+		}
 	} else {
 		logger.Infoln("Creating new ArgoCD ingress...")
 
+		annotations := map[string]string{
+			"nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
+		}
+
+		var tlsConfig []networkingv1.IngressTLS
+
+		if isTLSAvailable {
+			annotations["cert-manager.io/cluster-issuer"] = "local-ca-issuer"
+			annotations["nginx.ingress.kubernetes.io/ssl-redirect"] = "true"
+			annotations["nginx.ingress.kubernetes.io/force-ssl-redirect"] = "true"
+			tlsConfig = []networkingv1.IngressTLS{
+				{
+					Hosts:      []string{hostname},
+					SecretName: "argocd-server-tls",
+				},
+			}
+		} else {
+			annotations["nginx.ingress.kubernetes.io/ssl-redirect"] = "false"
+			annotations["nginx.ingress.kubernetes.io/force-ssl-redirect"] = "false"
+		}
+
 		ingress := &networkingv1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "argocd-server",
-				Namespace: "argocd",
-				Annotations: map[string]string{
-					"nginx.ingress.kubernetes.io/ssl-redirect":       "false",
-					"nginx.ingress.kubernetes.io/force-ssl-redirect": "false",
-					"nginx.ingress.kubernetes.io/backend-protocol":   "HTTP",
-				},
+				Name:        "argocd-server",
+				Namespace:   "argocd",
+				Annotations: annotations,
 			},
 			Spec: networkingv1.IngressSpec{
 				IngressClassName: func() *string { s := "nginx"; return &s }(),
+				TLS:              tlsConfig,
 				Rules: []networkingv1.IngressRule{
 					{
-						Host: fmt.Sprintf("argocd.%s.local", i.ClusterName),
+						Host: hostname,
 						IngressRuleValue: networkingv1.IngressRuleValue{
 							HTTP: &networkingv1.HTTPIngressRuleValue{
 								Paths: []networkingv1.HTTPIngressPath{
@@ -231,7 +278,11 @@ func (i *Ingress) configureArgoCDIngress() error {
 		if err != nil {
 			return fmt.Errorf("failed to create ArgoCD ingress: %w", err)
 		}
-		logger.Successln("Created ArgoCD ingress with host: argocd.%s.local", i.ClusterName)
+		if isTLSAvailable {
+			logger.Successln("Created ArgoCD ingress with HTTPS: https://argocd.%s.local", i.ClusterName)
+		} else {
+			logger.Successln("Created ArgoCD ingress with host: argocd.%s.local", i.ClusterName)
+		}
 	}
 
 	return nil
@@ -292,7 +343,15 @@ func (i *Ingress) printHostInstructions() error {
 	if strings.Contains(argoCDStatus, StatusRunning) {
 		logger.Infoln("echo '%s argocd.%s.local' | sudo tee -a /etc/hosts", nginxIP, i.ClusterName)
 		logger.Infoln("")
-		logger.Infoln("🚀 ArgoCD will be available at: http://argocd.%s.local", i.ClusterName)
+
+		isTLSAvailable := i.isTLSClusterIssuerAvailable()
+		if isTLSAvailable {
+			logger.Infoln("🚀 ArgoCD will be available at: https://argocd.%s.local", i.ClusterName)
+			logger.Infoln("🔒 TLS certificates will be automatically generated")
+		} else {
+			logger.Infoln("🚀 ArgoCD will be available at: http://argocd.%s.local", i.ClusterName)
+			logger.Infoln("💡 Install TLS plugin for HTTPS support: playground cluster plugin add --name tls --cluster %s", i.ClusterName)
+		}
 	}
 
 	logger.Infoln("")
@@ -323,4 +382,18 @@ func (i *Ingress) GetRepoName() string {
 
 func (i *Ingress) GetChartValues() map[string]interface{} {
 	return make(map[string]interface{})
+}
+
+func (i *Ingress) isTLSClusterIssuerAvailable() bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	gvr := schema.GroupVersionResource{
+		Group:    "cert-manager.io",
+		Version:  "v1",
+		Resource: "clusterissuers",
+	}
+
+	_, err := i.k8sClient.Dynamic.Resource(gvr).Get(ctx, "local-ca-issuer", metav1.GetOptions{})
+	return err == nil
 }

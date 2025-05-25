@@ -139,12 +139,16 @@ The ingress plugin provides domain-based access to your cluster services:
 **Features:**
 - Configures cluster domain: `{cluster-name}.local`
 - Automatically sets up ArgoCD ingress if ArgoCD is installed
+- Automatic TLS certificate generation when TLS plugin is installed
 - Ensures nginx service is exposed as LoadBalancer
 - Provides `/etc/hosts` configuration commands
 
 **Dependencies:**
 - `nginx-ingress` plugin must be installed
 - `load-balancer` plugin must be installed
+
+**Optional Enhancement:**
+- `tls` plugin for automatic HTTPS certificate generation
 
 **Usage:**
 ```bash
@@ -154,9 +158,15 @@ playground cluster plugin add --name nginx-ingress --cluster my-cluster
 
 # Install ingress plugin
 playground cluster plugin add --name ingress --cluster my-cluster
+
+# Optional: Install TLS plugin for HTTPS support
+playground cluster plugin add --name cert-manager --cluster my-cluster
+playground cluster plugin add --name tls --cluster my-cluster
+# Now re-run ingress plugin to enable HTTPS
+playground cluster plugin add --name ingress --cluster my-cluster
 ```
 
-After installation, the plugin will provide commands to add entries to your `/etc/hosts` file for local domain access.
+After installation, the plugin will provide commands to add entries to your `/etc/hosts` file for local domain access. If the TLS plugin is installed, ArgoCD will automatically be configured with HTTPS using the generated CA certificate.
 
 #### TLS Plugin
 
@@ -169,6 +179,7 @@ The TLS plugin provides SSL/TLS certificate management for your cluster using se
 - Provides OS-specific instructions for trusting the CA certificate
 - 10-year certificate validity period
 - Supports macOS, Linux, and Windows trust store integration
+- Automatic ArgoCD HTTPS configuration when used with ingress plugin
 
 **Dependencies:**
 - `cert-manager` plugin must be installed
@@ -180,7 +191,17 @@ playground cluster plugin add --name cert-manager --cluster my-cluster
 
 # Install TLS plugin
 playground cluster plugin add --name tls --cluster my-cluster
+
+# If ingress plugin is already installed, re-run it to enable HTTPS
+playground cluster plugin add --name ingress --cluster my-cluster
 ```
+
+**Integration with Ingress Plugin:**
+When both TLS and ingress plugins are installed, the ingress plugin automatically:
+- Detects the TLS cluster issuer (`local-ca-issuer`)
+- Configures ArgoCD ingress with TLS certificate generation
+- Updates ArgoCD to use HTTPS instead of HTTP
+- Displays HTTPS URLs in the setup instructions
 
 **Generated Resources:**
 - Secret: `local-ca-secret` in `cert-manager` namespace
