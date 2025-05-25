@@ -299,7 +299,11 @@ func (i *Ingress) isTLSClusterIssuerAvailable() bool {
 	return err == nil
 }
 
-func (i *Ingress) updateExistingArgoCDIngress(existingIngress *networkingv1.Ingress, hostname string, isTLSAvailable bool) error {
+func (i *Ingress) updateExistingArgoCDIngress(
+	existingIngress *networkingv1.Ingress,
+	hostname string,
+	isTLSAvailable bool,
+) error {
 	logger.Infoln("Updating existing ArgoCD ingress with cluster domain and TLS...")
 
 	if len(existingIngress.Spec.Rules) > 0 {
