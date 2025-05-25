@@ -13,8 +13,13 @@ type Plugin interface {
 	GetChartValues() map[string]interface{}
 }
 
-func CreatePluginsList(kubeConfig, masterClusterIP string) ([]Plugin, error) {
+func CreatePluginsList(kubeConfig, masterClusterIP, clusterName string) ([]Plugin, error) {
 	lb, err := NewLoadBalancer(kubeConfig, masterClusterIP)
+	if err != nil {
+		return nil, err
+	}
+
+	ingress, err := NewIngress(kubeConfig, clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -24,6 +29,7 @@ func CreatePluginsList(kubeConfig, masterClusterIP string) ([]Plugin, error) {
 		NewCertManager(kubeConfig),
 		lb,
 		NewNginx(kubeConfig),
+		ingress,
 	}, nil
 }
 
