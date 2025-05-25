@@ -14,11 +14,11 @@ import (
 	"github.com/mrgb7/playground/pkg/logger"
 )
 
-// Client defines the interface for multipass operations
 type Client interface {
 	IsMultipassInstalled() bool
 	CreateCluster(clusterName string, nodeCount int, wg *sync.WaitGroup) error
 	DeleteCluster(clusterName string, wg *sync.WaitGroup) error
+	ListClusters() ([]string, error)
 	CreateNode(name string, cpus int, memory string, disk string) error
 	DeleteNode(name string) error
 	PurgeNodes() error
@@ -64,7 +64,6 @@ func NewMultipassClient() *MultipassClient {
 }
 
 func (m *MultipassClient) IsMultipassInstalled() bool {
-	// Binary path is controlled, this is a legitimate multipass CLI call
 	cmd := exec.Command(m.BinaryPath, "--version") //nolint:gosec
 	err := cmd.Run()
 	return err == nil
@@ -130,7 +129,6 @@ func (m *MultipassClient) CreateCluster(clusterName string, nodeCount int, wg *s
 
 func (m *MultipassClient) DeleteCluster(clusterName string, wg *sync.WaitGroup) error {
 	var list MultiPassList
-	// Binary path is controlled, this is a legitimate multipass CLI call
 	cmd := exec.Command(m.BinaryPath, "list", "--format", "json") //nolint:gosec
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -196,7 +194,6 @@ func (m *MultipassClient) CreateNode(name string, cpus int, memory string, disk 
 	}
 
 	logger.Debugln("Creating node: %s with %d CPUs, %s memory, %s disk", name, cpus, memory, disk)
-	// Binary path is controlled, this is a legitimate multipass CLI call
 	cmd := exec.Command(m.BinaryPath, args...) //nolint:gosec
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -210,7 +207,6 @@ func (m *MultipassClient) CreateNode(name string, cpus int, memory string, disk 
 }
 
 func (m *MultipassClient) DeleteNode(name string) error {
-	// Binary path is controlled, this is a legitimate multipass CLI call
 	cmd := exec.Command(m.BinaryPath, "delete", name) //nolint:gosec
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -239,7 +235,6 @@ func (m *MultipassClient) PurgeNodes() error {
 }
 
 func (m *MultipassClient) GetNodeIP(name string) (string, error) {
-	// Binary path is controlled, this is a legitimate multipass CLI call
 	cmd := exec.Command(m.BinaryPath, "info", name, "--format", "json") //nolint:gosec
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -272,7 +267,8 @@ func (m *MultipassClient) ExecuteShell(name string, command string) (string, err
 }
 
 func (m *MultipassClient) ExecuteShellWithTimeout(name string, command string, timeoutSeconds int,
-	envs ...string) (string, error) {
+	envs ...string,
+) (string, error) {
 	ctx := context.Background()
 	var cancel context.CancelFunc
 
@@ -281,7 +277,6 @@ func (m *MultipassClient) ExecuteShellWithTimeout(name string, command string, t
 		defer cancel()
 	}
 
-	// Binary path is controlled, this is a legitimate multipass CLI call
 	cmd := exec.CommandContext(ctx, m.BinaryPath, "exec", name, "--", "bash", "-c", command) //nolint:gosec
 	cmd.Env = append(os.Environ(), envs...)
 	var stdout, stderr bytes.Buffer
@@ -299,4 +294,33 @@ func (m *MultipassClient) ExecuteShellWithTimeout(name string, command string, t
 	}
 
 	return stdout.String(), nil
+}
+
+func (m *MultipassClient) ListClusters() ([]string, error) {
+	var list MultiPassList
+	cmd := exec.Command(m.BinaryPath, "list", "--format", "json") //nolint:gosec
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("failed to list instances: %s - %w", stderr.String(), err)
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &list); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON output: %w", err)
+	}
+
+	var clusters []string
+	seenClusters := make(map[string]bool) // To avoid duplicates
+
+	for _, instance := range list.List {
+		if strings.HasSuffix(instance.Name, "-master") {
+			clusterName := strings.TrimSuffix(instance.Name, "-master")
+			if !seenClusters[clusterName] {
+				clusters = append(clusters, clusterName)
+				seenClusters[clusterName] = true
+			}
+		}
+	}
+
+	return clusters, nil
 }

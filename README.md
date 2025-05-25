@@ -86,6 +86,9 @@ playground version --verbose
 ### Basic Commands
 
 ```bash
+# List all existing clusters
+playground cluster list
+
 # Create a single-node cluster
 playground cluster create --name my-cluster
 
