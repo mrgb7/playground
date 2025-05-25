@@ -29,6 +29,7 @@ const (
 	TLSSecretName        = "local-ca-secret"
 	TLSClusterIssuerName = "local-ca-issuer"
 	CertValidityYears    = 10
+	RSAKeySize           = 4096
 )
 
 type TLS struct {
@@ -151,7 +152,7 @@ func (t *TLS) checkDependencies() error {
 func (t *TLS) generateCACertificate() ([]byte, []byte, error) {
 	logger.Infoln("Generating CA certificate for domain: *.%s.local", t.ClusterName)
 
-	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	privateKey, err := rsa.GenerateKey(rand.Reader, RSAKeySize)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to generate private key: %w", err)
 	}
@@ -216,15 +217,16 @@ func (t *TLS) storeCASecret(caCert, caKey []byte) error {
 	}
 
 	_, err := t.k8sClient.Clientset.CoreV1().Secrets(CertManagerNamespace).Create(ctx, secret, metav1.CreateOptions{})
-	if err != nil && strings.Contains(err.Error(), "already exists") {
+	switch {
+	case err != nil && strings.Contains(err.Error(), "already exists"):
 		_, err = t.k8sClient.Clientset.CoreV1().Secrets(CertManagerNamespace).Update(ctx, secret, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to update existing CA secret: %w", err)
 		}
 		logger.Infoln("Updated existing CA secret")
-	} else if err != nil {
+	case err != nil:
 		return fmt.Errorf("failed to create CA secret: %w", err)
-	} else {
+	default:
 		logger.Successln("Created CA secret successfully")
 	}
 
@@ -259,19 +261,59 @@ func (t *TLS) createClusterIssuer() error {
 	}
 
 	_, err := t.k8sClient.Dynamic.Resource(gvr).Create(ctx, clusterIssuer, metav1.CreateOptions{})
-	if err != nil && strings.Contains(err.Error(), "already exists") {
+	switch {
+	case err != nil && strings.Contains(err.Error(), "already exists"):
 		_, err = t.k8sClient.Dynamic.Resource(gvr).Update(ctx, clusterIssuer, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to update existing cluster issuer: %w", err)
 		}
 		logger.Infoln("Updated existing cluster issuer")
-	} else if err != nil {
+	case err != nil:
 		return fmt.Errorf("failed to create cluster issuer: %w", err)
-	} else {
+	default:
 		logger.Successln("Created cluster issuer successfully")
 	}
 
 	return nil
+}
+
+func (t *TLS) printMacOSInstructions(tempFile *os.File) {
+	logger.Infoln("🍎 macOS Trust Instructions:")
+	logger.Infoln("sudo security add-trusted-cert -d -r trustRoot \\")
+	logger.Infoln("  -k /Library/Keychains/System.keychain %s", tempFile.Name())
+	logger.Infoln("")
+	logger.Infoln("Alternative (GUI method):")
+	logger.Infoln("1. Double-click the certificate file to open Keychain Access")
+	logger.Infoln("2. Select 'System' keychain")
+	logger.Infoln("3. Find the certificate and double-click it")
+	logger.Infoln("4. Expand 'Trust' and set 'When using this certificate' to 'Always Trust'")
+}
+
+func (t *TLS) printLinuxInstructions(tempFile *os.File) {
+	logger.Infoln("🐧 Linux Trust Instructions:")
+	logger.Infoln("sudo cp %s /usr/local/share/ca-certificates/%s-ca.crt", tempFile.Name(), t.ClusterName)
+	logger.Infoln("sudo update-ca-certificates")
+	logger.Infoln("")
+	logger.Infoln("For Firefox (if needed):")
+	logger.Infoln("Import the certificate manually in Firefox preferences > Privacy & Security > Certificates")
+}
+
+func (t *TLS) printWindowsInstructions(tempFile *os.File) {
+	logger.Infoln("🪟 Windows Trust Instructions:")
+	logger.Infoln("certlm.msc")
+	logger.Infoln("1. Right-click 'Trusted Root Certification Authorities'")
+	logger.Infoln("2. Select 'All Tasks' > 'Import'")
+	logger.Infoln("3. Browse and select: %s", tempFile.Name())
+	logger.Infoln("4. Place in 'Trusted Root Certification Authorities' store")
+	logger.Infoln("")
+	logger.Infoln("Alternative (PowerShell as Administrator):")
+	logger.Infoln("Import-Certificate -FilePath \"%s\" -CertStoreLocation Cert:\\LocalMachine\\Root", tempFile.Name())
+}
+
+func (t *TLS) printGenericInstructions(tempFile *os.File) {
+	logger.Infoln("📋 Generic Trust Instructions:")
+	logger.Infoln("Add the following certificate to your system's trusted CA store:")
+	logger.Infoln("Certificate file: %s", tempFile.Name())
 }
 
 func (t *TLS) printTrustInstructions(caCert []byte) error {
@@ -294,38 +336,13 @@ func (t *TLS) printTrustInstructions(caCert []byte) error {
 
 	switch runtime.GOOS {
 	case "darwin":
-		logger.Infoln("🍎 macOS Trust Instructions:")
-		logger.Infoln("sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain %s", tempFile.Name())
-		logger.Infoln("")
-		logger.Infoln("Alternative (GUI method):")
-		logger.Infoln("1. Double-click the certificate file to open Keychain Access")
-		logger.Infoln("2. Select 'System' keychain")
-		logger.Infoln("3. Find the certificate and double-click it")
-		logger.Infoln("4. Expand 'Trust' and set 'When using this certificate' to 'Always Trust'")
-
+		t.printMacOSInstructions(tempFile)
 	case "linux":
-		logger.Infoln("🐧 Linux Trust Instructions:")
-		logger.Infoln("sudo cp %s /usr/local/share/ca-certificates/%s-ca.crt", tempFile.Name(), t.ClusterName)
-		logger.Infoln("sudo update-ca-certificates")
-		logger.Infoln("")
-		logger.Infoln("For Firefox (if needed):")
-		logger.Infoln("Import the certificate manually in Firefox preferences > Privacy & Security > Certificates")
-
+		t.printLinuxInstructions(tempFile)
 	case "windows":
-		logger.Infoln("🪟 Windows Trust Instructions:")
-		logger.Infoln("certlm.msc")
-		logger.Infoln("1. Right-click 'Trusted Root Certification Authorities'")
-		logger.Infoln("2. Select 'All Tasks' > 'Import'")
-		logger.Infoln("3. Browse and select: %s", tempFile.Name())
-		logger.Infoln("4. Place in 'Trusted Root Certification Authorities' store")
-		logger.Infoln("")
-		logger.Infoln("Alternative (PowerShell as Administrator):")
-		logger.Infoln("Import-Certificate -FilePath \"%s\" -CertStoreLocation Cert:\\LocalMachine\\Root", tempFile.Name())
-
+		t.printWindowsInstructions(tempFile)
 	default:
-		logger.Infoln("📋 Generic Trust Instructions:")
-		logger.Infoln("Add the following certificate to your system's trusted CA store:")
-		logger.Infoln("Certificate file: %s", tempFile.Name())
+		t.printGenericInstructions(tempFile)
 	}
 
 	logger.Infoln("")
@@ -343,6 +360,10 @@ func (t *TLS) printTrustInstructions(caCert []byte) error {
 	logger.Infoln(certBase64)
 
 	return nil
+}
+
+func (t *TLS) GetClusterIssuerName() string {
+	return TLSClusterIssuerName
 }
 
 func (t *TLS) GetNamespace() string {
