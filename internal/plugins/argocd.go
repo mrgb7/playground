@@ -20,13 +20,14 @@ type Argocd struct {
 }
 
 const (
-	ArgocdRepoUrl       = "https://argoproj.github.io/argo-helm"
+	ArgocdRepoURL       = "https://argoproj.github.io/argo-helm"
 	ArgocdChartName     = "argo-cd"
 	ArgocdChartVersion  = "8.0.0"
 	ArgocdReleaseName   = "argocd"
 	ArgocdNamespace     = "argocd"
 	ArgoRepoName        = "argo"
-	ArgocdValuesFileURL = "https://raw.githubusercontent.com/mrgb7/core-infrastructure/refs/heads/main/argocd/argocd-values-local.yaml"
+	ArgocdValuesFileURL = "https://raw.githubusercontent.com/mrgb7/core-infrastructure/" +
+		"refs/heads/main/argocd/argocd-values-local.yaml"
 
 	HTTPTimeoutSeconds = 30
 	MaxResponseSize    = 10 * 1024 * 1024
@@ -100,14 +101,14 @@ func (a *Argocd) Status() string {
 	c, err := k8s.NewK8sClient(a.KubeConfig)
 	if err != nil {
 		logger.Errorln("failed to create k8s client: %v", err)
-		return "UNKOWN"
+		return "UNKNOWN"
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	ns, err := c.GetNameSpace(ArgocdNamespace, ctx)
 	if ns == "" || err != nil {
 		logger.Errorln("failed to get argocd namespace: %v", err)
-		return "Not installed"
+		return StatusNotInstalled
 	}
 	return "argocd is running"
 }
@@ -125,7 +126,7 @@ func (a *Argocd) GetChartName() string {
 }
 
 func (a *Argocd) GetRepository() string {
-	return ArgocdRepoUrl
+	return ArgocdRepoURL
 }
 
 func (a *Argocd) GetChartValues() map[string]interface{} {

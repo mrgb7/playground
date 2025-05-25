@@ -6,6 +6,10 @@ import (
 	"github.com/mrgb7/playground/internal/installer"
 )
 
+const (
+	StatusNotInstalled = "Not installed"
+)
+
 type BasePlugin struct {
 	KubeConfig string
 	plugin     Plugin

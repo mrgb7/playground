@@ -18,7 +18,9 @@ var (
 			var wg sync.WaitGroup
 			if len(args) < 1 {
 				logger.Errorln("Error: Cluster name is required")
-				cmd.Help()
+				if err := cmd.Help(); err != nil {
+					logger.Errorln("Failed to show help: %v", err)
+				}
 				return
 			}
 

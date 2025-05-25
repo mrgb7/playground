@@ -14,12 +14,14 @@ type CertManager struct {
 }
 
 const (
-	CertManagerRepoUrl      = "https://charts.jetstack.io"
+	CertManagerRepoURL      = "https://charts.jetstack.io"
 	CertManagerChartName    = "cert-manager"
 	CertManagerChartVersion = "v1.17.2"
 	CertManagerReleaseName  = "cert-manager"
 	CertManagerNamespace    = "cert-manager"
 	CertManagerRepoName     = "jetstack"
+
+	DefaultWebhookTimeout = 10
 )
 
 func NewCertManager(kubeConfig string) *CertManager {
@@ -51,7 +53,7 @@ func (c *CertManager) getDefaultValues() map[string]interface{} {
 			"enabled": true,
 		},
 		"webhook": map[string]interface{}{
-			"timeoutSeconds": 10,
+			"timeoutSeconds": DefaultWebhookTimeout,
 		},
 	}
 }
@@ -68,7 +70,7 @@ func (c *CertManager) Status() string {
 	ns, err := client.GetNameSpace(CertManagerNamespace, ctx)
 	if ns == "" || err != nil {
 		logger.Errorln("failed to get cert-manager namespace: %v", err)
-		return "Not installed"
+		return StatusNotInstalled
 	}
 	return "cert-manager is running"
 }
@@ -86,7 +88,7 @@ func (c *CertManager) GetChartName() string {
 }
 
 func (c *CertManager) GetRepository() string {
-	return CertManagerRepoUrl
+	return CertManagerRepoURL
 }
 
 func (c *CertManager) GetChartValues() map[string]interface{} {

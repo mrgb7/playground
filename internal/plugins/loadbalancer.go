@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	repoUrl      = "https://metallb.github.io/metallb"
+	repoURL      = "https://metallb.github.io/metallb"
 	chartName    = "metallb"
 	chartVersion = "0.14.9"
 	releaseName  = "metallb"
@@ -78,18 +78,14 @@ func (l *LoadBalancer) Status() string {
 	ns, err := l.k8sClient.GetNameSpace(namespace, ctx)
 	if ns == "" || err != nil {
 		logger.Errorln("failed to get metallb namespace: %v", err)
-		return "Not installed"
+		return StatusNotInstalled
 	}
 
 	return "LoadBalancer is running"
 }
 
 func (l *LoadBalancer) addl2IpPool() error {
-	ipRange, err := l.getIPRange()
-	if err != nil {
-		logger.Errorln("failed to get ip range: %v", err)
-		return fmt.Errorf("failed to get ip range: %w", err)
-	}
+	ipRange := l.getIPRange()
 	ipPool := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "metallb.io/v1beta1",
@@ -113,7 +109,7 @@ func (l *LoadBalancer) addl2IpPool() error {
 		Version:  "v1beta1",
 		Resource: "ipaddresspools",
 	}
-	_, err = l.k8sClient.Dynamic.Resource(ipPooRes).
+	_, err := l.k8sClient.Dynamic.Resource(ipPooRes).
 		Namespace(namespace).
 		Create(context.TODO(), ipPool, metav1.CreateOptions{})
 	if err != nil {
@@ -165,12 +161,12 @@ func (l *LoadBalancer) deleteValidationWebhookConfig() error {
 		Delete(context.TODO(), "metallb-webhook-configuration", metav1.DeleteOptions{})
 }
 
-func (l *LoadBalancer) getIPRange() (string, error) {
+func (l *LoadBalancer) getIPRange() string {
 	ipParts := strings.Split(l.MasterClusterIP, ".")
 	dhcp := ipParts[:3]
 	start := fmt.Sprintf("%s.100", strings.Join(dhcp, "."))
 	end := fmt.Sprintf("%s.200", strings.Join(dhcp, "."))
-	return fmt.Sprintf("%s-%s", start, end), nil
+	return fmt.Sprintf("%s-%s", start, end)
 }
 
 func (l *LoadBalancer) GetNamespace() string {
@@ -186,7 +182,7 @@ func (l *LoadBalancer) GetChartName() string {
 }
 
 func (l *LoadBalancer) GetRepository() string {
-	return repoUrl
+	return repoURL
 }
 
 func (l *LoadBalancer) GetChartValues() map[string]interface{} {
