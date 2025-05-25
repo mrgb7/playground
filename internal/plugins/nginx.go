@@ -106,4 +106,4 @@ func (n *Nginx) GetChartValues() map[string]interface{} {
 			"enabled": true,
 		},
 	}
-} 
+}
