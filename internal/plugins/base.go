@@ -9,6 +9,7 @@ import (
 const (
 	StatusNotInstalled = "Not installed"
 	StatusUnknown      = "UNKNOWN"
+	StatusRunning      = "running"
 )
 
 type BasePlugin struct {

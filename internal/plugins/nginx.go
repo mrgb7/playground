@@ -43,13 +43,13 @@ func (n *Nginx) Uninstall(kubeConfig, clusterName string, ensure ...bool) error 
 
 func (n *Nginx) Status() string {
 	if n.KubeConfig == "" {
-		logger.Errorln("kubeConfig is empty")
+		logger.Errorf("kubeConfig is empty")
 		return StatusUnknown
 	}
 
 	c, err := k8s.NewK8sClient(n.KubeConfig)
 	if err != nil {
-		logger.Errorln("failed to create k8s client: %v", err)
+		logger.Errorf("failed to create k8s client: %v", err)
 		return StatusUnknown
 	}
 
@@ -58,10 +58,10 @@ func (n *Nginx) Status() string {
 
 	ns, err := c.GetNameSpace(NginxNamespace, ctx)
 	if ns == "" || err != nil {
-		logger.Debugln("nginx namespace not found or error occurred: %v", err)
+		logger.Debugf("nginx namespace not found or error occurred: %v", err)
 		return StatusNotInstalled
 	}
-	return "nginx-ingress is running"
+	return n.GetName() + " is " + StatusRunning
 }
 
 func (n *Nginx) GetNamespace() string {

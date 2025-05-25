@@ -139,3 +139,34 @@ func TestNginx_Status_EmptyKubeConfig(t *testing.T) {
 		t.Errorf("expected status %s for empty config, got %s", expected, status)
 	}
 }
+
+func TestNginx_Status_ValidConfig_NamespaceNotFound(t *testing.T) {
+	nginx := NewNginx("~/.kube/config")
+	status := nginx.Status()
+	expected := StatusUnknown
+	if status != expected {
+		t.Errorf("expected status %s when kubeconfig is invalid, got %s", expected, status)
+	}
+}
+
+func TestNginx_Status_Constants(t *testing.T) {
+	if StatusRunning != "running" {
+		t.Errorf("expected StatusRunning to be 'running', got '%s'", StatusRunning)
+	}
+
+	if StatusNotInstalled != "Not installed" {
+		t.Errorf("expected StatusNotInstalled to be 'Not installed', got '%s'", StatusNotInstalled)
+	}
+
+	if StatusUnknown != "UNKNOWN" {
+		t.Errorf("expected StatusUnknown to be 'UNKNOWN', got '%s'", StatusUnknown)
+	}
+}
+
+func TestNginx_Status_Message_Format(t *testing.T) {
+	nginx := NewNginx("valid-config")
+	expectedFormat := nginx.GetName() + " is " + StatusRunning
+	if expectedFormat != "nginx-ingress is running" {
+		t.Errorf("expected status format 'nginx-ingress is running', got '%s'", expectedFormat)
+	}
+}
