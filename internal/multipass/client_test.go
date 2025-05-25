@@ -19,13 +19,11 @@ func TestNewMultipassClient(t *testing.T) {
 func TestMultipassClient_IsMultipassInstalled(t *testing.T) {
 	client := NewMultipassClient()
 
-	// Test with invalid binary path
 	client.BinaryPath = "nonexistent-binary"
 	if client.IsMultipassInstalled() {
 		t.Error("Expected IsMultipassInstalled() to return false for nonexistent binary")
 	}
 
-	// Test with valid command (assuming 'echo' exists on most systems)
 	client.BinaryPath = "echo"
 	if !client.IsMultipassInstalled() {
 		t.Error("Expected IsMultipassInstalled() to return true for 'echo' command")
@@ -33,7 +31,6 @@ func TestMultipassClient_IsMultipassInstalled(t *testing.T) {
 }
 
 func TestConstants(t *testing.T) {
-	// Test that constants are properly defined
 	if DefaultMasterCPUs <= 0 {
 		t.Errorf("DefaultMasterCPUs should be positive, got: %d", DefaultMasterCPUs)
 	}
@@ -63,7 +60,6 @@ func TestMultipassClient_CreateNode_ValidatesInput(t *testing.T) {
 	client := NewMultipassClient()
 	client.BinaryPath = "nonexistent-binary" // Ensure it fails for the right reason
 
-	// Test with empty node name
 	err := client.CreateNode("", 1, "1G", "5G")
 	if err == nil {
 		t.Error("Expected CreateNode to fail with empty node name")

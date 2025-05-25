@@ -267,7 +267,8 @@ func (m *MultipassClient) ExecuteShell(name string, command string) (string, err
 }
 
 func (m *MultipassClient) ExecuteShellWithTimeout(name string, command string, timeoutSeconds int,
-	envs ...string) (string, error) {
+	envs ...string,
+) (string, error) {
 	ctx := context.Background()
 	var cancel context.CancelFunc
 
@@ -294,7 +295,6 @@ func (m *MultipassClient) ExecuteShellWithTimeout(name string, command string, t
 
 	return stdout.String(), nil
 }
-
 
 func (m *MultipassClient) ListClusters() ([]string, error) {
 	var list MultiPassList

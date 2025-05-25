@@ -34,4 +34,5 @@ var listCmd = &cobra.Command{
 			logger.Infoln("  - %s", cluster)
 		}
 	},
-} 
+}
+

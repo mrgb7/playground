@@ -8,7 +8,7 @@ import (
 
 func TestListClusters(t *testing.T) {
 	client := multipass.NewMultipassClient()
-	
+
 	if !client.IsMultipassInstalled() {
 		t.Skip("Multipass is not installed, skipping test")
 	}
@@ -19,4 +19,5 @@ func TestListClusters(t *testing.T) {
 	}
 
 	t.Logf("Found %d clusters: %v", len(clusters), clusters)
-} 
+}
+
