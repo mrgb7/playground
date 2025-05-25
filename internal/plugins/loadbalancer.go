@@ -86,6 +86,12 @@ func (l *LoadBalancer) Status() string {
 
 func (l *LoadBalancer) addl2IpPool() error {
 	ipRange := l.getIPRange()
+	ipPooRes := schema.GroupVersionResource{
+		Group:    "metallb.io",
+		Version:  "v1beta1",
+		Resource: "ipaddresspools",
+	}
+
 	ipPool := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "metallb.io/v1beta1",
@@ -104,22 +110,58 @@ func (l *LoadBalancer) addl2IpPool() error {
 		Version: "v1beta1",
 		Kind:    "IPAddressPool",
 	})
-	ipPooRes := schema.GroupVersionResource{
-		Group:    "metallb.io",
-		Version:  "v1beta1",
-		Resource: "ipaddresspools",
-	}
+
 	_, err := l.k8sClient.Dynamic.Resource(ipPooRes).
 		Namespace(namespace).
 		Create(context.TODO(), ipPool, metav1.CreateOptions{})
-	if err != nil {
+
+	switch {
+	case err != nil && strings.Contains(err.Error(), "already exists"):
+		// Get the existing IP address pool to preserve metadata
+		existing, getErr := l.k8sClient.Dynamic.Resource(ipPooRes).
+			Namespace(namespace).
+			Get(context.TODO(), "k3s-pool-ip", metav1.GetOptions{})
+		if getErr != nil {
+			return fmt.Errorf("failed to get existing IP address pool: %w", getErr)
+		}
+
+		// Preserve the existing metadata and update only the spec
+		ipPool.SetResourceVersion(existing.GetResourceVersion())
+		ipPool.SetUID(existing.GetUID())
+		ipPool.SetCreationTimestamp(existing.GetCreationTimestamp())
+		ipPool.SetGeneration(existing.GetGeneration())
+
+		// Copy any existing labels and annotations
+		if labels := existing.GetLabels(); labels != nil {
+			ipPool.SetLabels(labels)
+		}
+		if annotations := existing.GetAnnotations(); annotations != nil {
+			ipPool.SetAnnotations(annotations)
+		}
+
+		_, err = l.k8sClient.Dynamic.Resource(ipPooRes).
+			Namespace(namespace).
+			Update(context.TODO(), ipPool, metav1.UpdateOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to update existing IP address pool: %w", err)
+		}
+		logger.Infoln("Updated existing IP address pool")
+	case err != nil:
 		logger.Errorln("failed to create ip address pool: %v", err)
 		return fmt.Errorf("failed to create ip address pool: %w", err)
+	default:
+		logger.Successln("Created IP address pool successfully")
 	}
 	return nil
 }
 
 func (l *LoadBalancer) addl2Adv() error {
+	l2AdvRes := schema.GroupVersionResource{
+		Group:    "metallb.io",
+		Version:  "v1beta1",
+		Resource: "l2advertisements",
+	}
+
 	l2Adv := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "metallb.io/v1beta1",
@@ -139,18 +181,46 @@ func (l *LoadBalancer) addl2Adv() error {
 		Kind:    "L2Advertisement",
 	})
 
-	l2AdvRes := schema.GroupVersionResource{
-		Group:    "metallb.io",
-		Version:  "v1beta1",
-		Resource: "l2advertisements",
-	}
-
 	_, err := l.k8sClient.Dynamic.Resource(l2AdvRes).
 		Namespace(namespace).
 		Create(context.TODO(), l2Adv, metav1.CreateOptions{})
-	if err != nil {
+
+	switch {
+	case err != nil && strings.Contains(err.Error(), "already exists"):
+		// Get the existing L2Advertisement to preserve metadata
+		existing, getErr := l.k8sClient.Dynamic.Resource(l2AdvRes).
+			Namespace(namespace).
+			Get(context.TODO(), "k3s-lb-pool", metav1.GetOptions{})
+		if getErr != nil {
+			return fmt.Errorf("failed to get existing L2Advertisement: %w", getErr)
+		}
+
+		// Preserve the existing metadata and update only the spec
+		l2Adv.SetResourceVersion(existing.GetResourceVersion())
+		l2Adv.SetUID(existing.GetUID())
+		l2Adv.SetCreationTimestamp(existing.GetCreationTimestamp())
+		l2Adv.SetGeneration(existing.GetGeneration())
+
+		// Copy any existing labels and annotations
+		if labels := existing.GetLabels(); labels != nil {
+			l2Adv.SetLabels(labels)
+		}
+		if annotations := existing.GetAnnotations(); annotations != nil {
+			l2Adv.SetAnnotations(annotations)
+		}
+
+		_, err = l.k8sClient.Dynamic.Resource(l2AdvRes).
+			Namespace(namespace).
+			Update(context.TODO(), l2Adv, metav1.UpdateOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to update existing L2Advertisement: %w", err)
+		}
+		logger.Infoln("Updated existing L2Advertisement")
+	case err != nil:
 		logger.Errorln("failed to create l2 advertisement: %v", err)
 		return fmt.Errorf("failed to create l2 advertisement: %w", err)
+	default:
+		logger.Successln("Created L2Advertisement successfully")
 	}
 	return nil
 }
