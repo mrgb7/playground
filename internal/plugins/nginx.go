@@ -10,8 +10,8 @@ import (
 
 const (
 	DefaultNginxReplicas = 2
-	NginxNamespace      = "ingress-nginx"
-	NginxChartVersion   = "4.11.3"
+	NginxNamespace       = "ingress-nginx"
+	NginxChartVersion    = "4.11.3"
 )
 
 type Nginx struct {
@@ -83,10 +83,10 @@ func (n *Nginx) GetChartValues() map[string]interface{} {
 				"type": "LoadBalancer",
 			},
 			"config": map[string]interface{}{
-				"enable-vts-status":     "true",
-				"use-forwarded-headers": "true",
+				"enable-vts-status":          "true",
+				"use-forwarded-headers":      "true",
 				"compute-full-forwarded-for": "true",
-				"use-proxy-protocol":    "false",
+				"use-proxy-protocol":         "false",
 			},
 			"metrics": map[string]interface{}{
 				"enabled": true,

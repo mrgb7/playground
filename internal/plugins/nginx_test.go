@@ -129,4 +129,4 @@ func TestNginx_Status_InvalidKubeConfig(t *testing.T) {
 	if status != expected {
 		t.Errorf("expected status %s for invalid config, got %s", expected, status)
 	}
-} 
+}
