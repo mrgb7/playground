@@ -19,6 +19,7 @@ type Client interface {
 	IsMultipassInstalled() bool
 	CreateCluster(clusterName string, nodeCount int, wg *sync.WaitGroup) error
 	DeleteCluster(clusterName string, wg *sync.WaitGroup) error
+	ListClusters() ([]string, error)
 	CreateNode(name string, cpus int, memory string, disk string) error
 	DeleteNode(name string) error
 	PurgeNodes() error
@@ -299,4 +300,38 @@ func (m *MultipassClient) ExecuteShellWithTimeout(name string, command string, t
 	}
 
 	return stdout.String(), nil
+}
+
+// ListClusters returns a list of cluster names by finding multipass instances ending with "-master"
+// and extracting the cluster name prefix (e.g., "playground-test-master" -> "playground-test")
+func (m *MultipassClient) ListClusters() ([]string, error) {
+	var list MultiPassList
+	// Binary path is controlled, this is a legitimate multipass CLI call
+	cmd := exec.Command(m.BinaryPath, "list", "--format", "json") //nolint:gosec
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("failed to list instances: %s - %w", stderr.String(), err)
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &list); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON output: %w", err)
+	}
+
+	var clusters []string
+	seenClusters := make(map[string]bool) // To avoid duplicates
+
+	for _, instance := range list.List {
+		// Check if the instance name ends with "-master"
+		if strings.HasSuffix(instance.Name, "-master") {
+			// Extract cluster name by removing the "-master" suffix
+			clusterName := strings.TrimSuffix(instance.Name, "-master")
+			if !seenClusters[clusterName] {
+				clusters = append(clusters, clusterName)
+				seenClusters[clusterName] = true
+			}
+		}
+	}
+
+	return clusters, nil
 }

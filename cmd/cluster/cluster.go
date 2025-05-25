@@ -16,4 +16,5 @@ func init() {
 	ClusterCmd.AddCommand(createCmd)
 	ClusterCmd.AddCommand(deleteCmd)
 	ClusterCmd.AddCommand(cleanCmd)
+	ClusterCmd.AddCommand(listCmd)
 }
