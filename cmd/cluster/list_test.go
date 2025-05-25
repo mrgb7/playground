@@ -20,4 +20,3 @@ func TestListClusters(t *testing.T) {
 
 	t.Logf("Found %d clusters: %v", len(clusters), clusters)
 }
-

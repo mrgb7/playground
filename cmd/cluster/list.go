@@ -35,4 +35,3 @@ var listCmd = &cobra.Command{
 		}
 	},
 }
-
