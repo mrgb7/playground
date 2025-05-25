@@ -15,7 +15,7 @@ func TestCreatePluginsListIncludesIngress(t *testing.T) {
 	// Check that ingress plugin is included
 	found := false
 	for _, plugin := range plugins {
-		if plugin.GetName() == "ingress" {
+		if plugin.GetName() == IngressName {
 			found = true
 			break
 		}
@@ -33,10 +33,10 @@ func TestCreatePluginsListIncludesIngress(t *testing.T) {
 func TestPluginNames(t *testing.T) {
 	expectedPlugins := []string{
 		"argocd",
-		"cert-manager", 
+		"cert-manager",
 		"load-balancer",
 		"nginx-ingress",
-		"ingress",
+		IngressName,
 	}
 
 	plugins, err := CreatePluginsList("dummy-kubeconfig", "192.168.1.100", "test-cluster")
@@ -59,4 +59,4 @@ func TestPluginNames(t *testing.T) {
 			t.Errorf("Expected plugin '%s' not found", expected)
 		}
 	}
-} 
+}

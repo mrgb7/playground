@@ -15,16 +15,16 @@ func TestIngressPluginInterface(t *testing.T) {
 	}
 
 	// Test plugin interface methods
-	if plugin.GetName() != "ingress" {
-		t.Errorf("Expected plugin name 'ingress', got '%s'", plugin.GetName())
+	if plugin.GetName() != IngressName {
+		t.Errorf("Expected plugin name '%s', got '%s'", IngressName, plugin.GetName())
 	}
 
 	if plugin.GetNamespace() != IngressNamespace {
 		t.Errorf("Expected namespace '%s', got '%s'", IngressNamespace, plugin.GetNamespace())
 	}
 
-	if plugin.GetVersion() != "1.0.0" {
-		t.Errorf("Expected version '1.0.0', got '%s'", plugin.GetVersion())
+	if plugin.GetVersion() != IngressVersion {
+		t.Errorf("Expected version '%s', got '%s'", IngressVersion, plugin.GetVersion())
 	}
 
 	// Test that chart-related methods return empty values (since this plugin doesn't use Helm)
@@ -45,4 +45,4 @@ func TestIngressPluginConstants(t *testing.T) {
 	if IngressNamespace != "ingress-system" {
 		t.Errorf("Expected IngressNamespace to be 'ingress-system', got '%s'", IngressNamespace)
 	}
-} 
+}
