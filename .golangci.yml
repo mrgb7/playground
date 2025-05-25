@@ -5,7 +5,7 @@ run:
 linters:
   enable:
     - bodyclose
-    - deadcode
+    - unused
     - depguard
     - dogsled
     - dupl
@@ -17,14 +17,13 @@ linters:
     - gocyclo
     - gofmt
     - goimports
-    - golint
-    - gomnd
+    - revive
+    - mnd
     - goprintffuncname
     - gosec
     - gosimple
     - govet
     - ineffassign
-    - interfacer
     - lll
     - misspell
     - nakedret
@@ -32,13 +31,10 @@ linters:
     - nolintlint
     - rowserrcheck
     - staticcheck
-    - structcheck
     - stylecheck
     - typecheck
     - unconvert
     - unparam
-    - unused
-    - varcheck
     - whitespace
 
 linters-settings:
@@ -53,14 +49,21 @@ linters-settings:
   gocyclo:
     min-complexity: 15
   
-  golint:
-    min-confidence: 0.8
+  revive:
+    confidence: 0.8
   
   lll:
     line-length: 120
   
   misspell:
     locale: US
+
+  depguard:
+    rules:
+      main:
+        deny:
+          - pkg: "github.com/pkg/errors"
+            desc: "use standard library errors package"
 
 issues:
   exclude-rules:
@@ -70,10 +73,32 @@ issues:
         - funlen
         - gocyclo
         - gosec
+        - lll
+        - mnd
     
     - linters:
         - lll
       source: "^//go:generate "
+    
+    # Allow init functions in CLI applications
+    - linters:
+        - gochecknoinits
+      path: cmd/
+    
+    # Allow printf-style function names in logger package
+    - linters:
+        - goprintffuncname
+      path: pkg/logger/
+    
+    # Allow magic numbers for common timeout values
+    - linters:
+        - mnd
+      source: "time\\.(Second|Minute)"
+    
+    # Allow magic numbers for file permissions
+    - linters:
+        - mnd
+      source: "0o[0-7]+"
   
   max-issues-per-linter: 0
   max-same-issues: 0 

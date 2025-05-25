@@ -102,7 +102,8 @@ func NewArgoInstaller(kubeConfig, clusterName string) (*ArgoInstaller, error) {
 	httpClient := &http.Client{
 		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			// This is for local development with port forwarding to ArgoCD
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
 		},
 	}
 
@@ -197,7 +198,7 @@ func (a *ArgoInstaller) authenticate(password string) error {
 	}
 
 	url := fmt.Sprintf("http://%s/api/v1/session", a.ServerAddress)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(reqBody))
+	req, err := http.NewRequestWithContext(context.Background(), "POST", url, bytes.NewBuffer(reqBody))
 	if err != nil {
 		return fmt.Errorf("failed to create session request: %w", err)
 	}
@@ -274,7 +275,7 @@ func (a *ArgoInstaller) createApplication(options *InstallOptions) error {
 	}
 
 	url := fmt.Sprintf("http://%s/api/v1/applications", a.ServerAddress)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(reqBody))
+	req, err := http.NewRequestWithContext(context.Background(), "POST", url, bytes.NewBuffer(reqBody))
 	if err != nil {
 		return fmt.Errorf("failed to create application request: %w", err)
 	}
@@ -301,7 +302,7 @@ func (a *ArgoInstaller) deleteApplication(options *InstallOptions) error {
 	}
 
 	url := fmt.Sprintf("http://%s/api/v1/applications/%s", a.ServerAddress, options.ApplicationName)
-	req, err := http.NewRequest("DELETE", url, nil)
+	req, err := http.NewRequestWithContext(context.Background(), "DELETE", url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create delete request: %w", err)
 	}
@@ -317,7 +318,8 @@ func (a *ArgoInstaller) deleteApplication(options *InstallOptions) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusNotFound {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent &&
+		resp.StatusCode != http.StatusNotFound {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("failed to delete application: HTTP %d - %s", resp.StatusCode, string(body))
 	}
@@ -395,7 +397,8 @@ func (a *ArgoInstaller) setupPortForward() error {
 }
 
 func (a *ArgoInstaller) GetAdminPassword() (string, error) {
-	secret, err := a.k8sClient.Clientset.CoreV1().Secrets(a.ArgoNamespace).Get(context.Background(), "argocd-initial-admin-secret", metav1.GetOptions{})
+	secret, err := a.k8sClient.Clientset.CoreV1().Secrets(a.ArgoNamespace).Get(
+		context.Background(), "argocd-initial-admin-secret", metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to get ArgoCD admin secret: %w", err)
 	}

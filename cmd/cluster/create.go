@@ -37,7 +37,7 @@ var (
 
 const (
 	K3sCreateMasterCmd   = `curl -sfL https://get.k3s.io | sh -s - --disable=servicelb --disable=traefik`
-	GetAccessTokenCmd    = `sudo cat /var/lib/rancher/k3s/server/node-token`
+	GetAccessTokenCmd    = `sudo cat /var/lib/rancher/k3s/server/node-token` //nolint:gosec
 	K3sCreateWorkerCmd   = `curl -sfL https://get.k3s.io | K3S_URL=https://%s:6443 K3S_TOKEN=%s  sh -`
 	KubeConfigCmd        = `sudo cat /etc/rancher/k3s/k3s.yaml`
 	K3sInstallTimeout    = 300 // seconds - timeout for K3s installation
@@ -57,7 +57,8 @@ func validateClusterName(name string) error {
 	}
 
 	if !matched {
-		return fmt.Errorf("cluster name must start and end with alphanumeric characters and contain only lowercase letters, numbers, and hyphens")
+		return fmt.Errorf("cluster name must start and end with alphanumeric characters " +
+			"and contain only lowercase letters, numbers, and hyphens")
 	}
 
 	if len(name) > MaxClusterNameLength {
@@ -312,6 +313,9 @@ func createKubeConfigFile(kubeConfig, clusterName string) error {
 func init() {
 	createCmd.Flags().StringVarP(&cCreateName, "name", "n", "", "Name for the cluster (required)")
 	createCmd.Flags().IntVarP(&cCreateSize, "size", "s", 1, "Number of nodes in the cluster")
-	createCmd.Flags().BoolVarP(&withCoreComponents, "with-core-component", "c", false, "Install core components (nginx,cert-manager)")
-	createCmd.MarkFlagRequired("name")
+	createCmd.Flags().BoolVarP(&withCoreComponents, "with-core-component", "c", false,
+		"Install core components (nginx,cert-manager)")
+	if err := createCmd.MarkFlagRequired("name"); err != nil {
+		logger.Errorln("Failed to mark name flag as required: %v", err)
+	}
 }

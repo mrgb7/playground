@@ -64,7 +64,8 @@ func NewMultipassClient() *MultipassClient {
 }
 
 func (m *MultipassClient) IsMultipassInstalled() bool {
-	cmd := exec.Command(m.BinaryPath, "--version")
+	// Binary path is controlled, this is a legitimate multipass CLI call
+	cmd := exec.Command(m.BinaryPath, "--version") //nolint:gosec
 	err := cmd.Run()
 	return err == nil
 }
@@ -129,7 +130,8 @@ func (m *MultipassClient) CreateCluster(clusterName string, nodeCount int, wg *s
 
 func (m *MultipassClient) DeleteCluster(clusterName string, wg *sync.WaitGroup) error {
 	var list MultiPassList
-	cmd := exec.Command(m.BinaryPath, "list", "--format", "json")
+	// Binary path is controlled, this is a legitimate multipass CLI call
+	cmd := exec.Command(m.BinaryPath, "list", "--format", "json") //nolint:gosec
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -194,7 +196,8 @@ func (m *MultipassClient) CreateNode(name string, cpus int, memory string, disk 
 	}
 
 	logger.Debugln("Creating node: %s with %d CPUs, %s memory, %s disk", name, cpus, memory, disk)
-	cmd := exec.Command(m.BinaryPath, args...)
+	// Binary path is controlled, this is a legitimate multipass CLI call
+	cmd := exec.Command(m.BinaryPath, args...) //nolint:gosec
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -207,7 +210,8 @@ func (m *MultipassClient) CreateNode(name string, cpus int, memory string, disk 
 }
 
 func (m *MultipassClient) DeleteNode(name string) error {
-	cmd := exec.Command(m.BinaryPath, "delete", name)
+	// Binary path is controlled, this is a legitimate multipass CLI call
+	cmd := exec.Command(m.BinaryPath, "delete", name) //nolint:gosec
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
@@ -221,7 +225,8 @@ func (m *MultipassClient) DeleteNode(name string) error {
 
 func (m *MultipassClient) PurgeNodes() error {
 	logger.Infoln("Purging deleted nodes")
-	cmd := exec.Command(m.BinaryPath, "purge")
+	// Binary path is controlled, this is a legitimate multipass CLI call
+	cmd := exec.Command(m.BinaryPath, "purge") //nolint:gosec
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
@@ -234,7 +239,8 @@ func (m *MultipassClient) PurgeNodes() error {
 }
 
 func (m *MultipassClient) GetNodeIP(name string) (string, error) {
-	cmd := exec.Command(m.BinaryPath, "info", name, "--format", "json")
+	// Binary path is controlled, this is a legitimate multipass CLI call
+	cmd := exec.Command(m.BinaryPath, "info", name, "--format", "json") //nolint:gosec
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -265,7 +271,8 @@ func (m *MultipassClient) ExecuteShell(name string, command string) (string, err
 	return m.ExecuteShellWithTimeout(name, command, 0) // No timeout by default
 }
 
-func (m *MultipassClient) ExecuteShellWithTimeout(name string, command string, timeoutSeconds int, envs ...string) (string, error) {
+func (m *MultipassClient) ExecuteShellWithTimeout(name string, command string, timeoutSeconds int,
+	envs ...string) (string, error) {
 	ctx := context.Background()
 	var cancel context.CancelFunc
 
@@ -274,7 +281,8 @@ func (m *MultipassClient) ExecuteShellWithTimeout(name string, command string, t
 		defer cancel()
 	}
 
-	cmd := exec.CommandContext(ctx, m.BinaryPath, "exec", name, "--", "bash", "-c", command)
+	// Binary path is controlled, this is a legitimate multipass CLI call
+	cmd := exec.CommandContext(ctx, m.BinaryPath, "exec", name, "--", "bash", "-c", command) //nolint:gosec
 	cmd.Env = append(os.Environ(), envs...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

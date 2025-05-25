@@ -2,6 +2,10 @@ package plugins
 
 import "github.com/mrgb7/playground/internal/installer"
 
+const (
+	DefaultNginxReplicas = 2
+)
+
 type Nginx struct{}
 
 func (n *Nginx) GetName() string {
@@ -47,7 +51,7 @@ func (n *Nginx) GetRepoName() string {
 func (n *Nginx) GetChartValues() map[string]interface{} {
 	return map[string]interface{}{
 		"controller": map[string]interface{}{
-			"replicaCount": 2,
+			"replicaCount": DefaultNginxReplicas,
 			"service": map[string]interface{}{
 				"type": "LoadBalancer",
 			},
