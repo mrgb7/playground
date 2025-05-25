@@ -24,12 +24,18 @@ func CreatePluginsList(kubeConfig, masterClusterIP, clusterName string) ([]Plugi
 		return nil, err
 	}
 
+	tls, err := NewTLS(kubeConfig, clusterName)
+	if err != nil {
+		return nil, err
+	}
+
 	return []Plugin{
 		NewArgocd(kubeConfig),
 		NewCertManager(kubeConfig),
 		lb,
 		NewNginx(kubeConfig),
 		ingress,
+		tls,
 	}, nil
 }
 

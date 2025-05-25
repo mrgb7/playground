@@ -30,6 +30,30 @@ func TestCreatePluginsListIncludesIngress(t *testing.T) {
 	}
 }
 
+func TestCreatePluginsListIncludesTLS(t *testing.T) {
+	plugins, err := CreatePluginsList("dummy-kubeconfig", "192.168.1.100", "test-cluster")
+	if err != nil {
+		t.Logf("CreatePluginsList failed (expected in test environment): %v", err)
+		return
+	}
+
+	found := false
+	for _, plugin := range plugins {
+		if plugin.GetName() == TLSName {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Error("TLS plugin not found in CreatePluginsList")
+		t.Log("Available plugins:")
+		for _, plugin := range plugins {
+			t.Logf("  - %s", plugin.GetName())
+		}
+	}
+}
+
 func TestPluginNames(t *testing.T) {
 	expectedPlugins := []string{
 		"argocd",
@@ -37,6 +61,7 @@ func TestPluginNames(t *testing.T) {
 		"load-balancer",
 		"nginx-ingress",
 		IngressName,
+		TLSName,
 	}
 
 	plugins, err := CreatePluginsList("dummy-kubeconfig", "192.168.1.100", "test-cluster")

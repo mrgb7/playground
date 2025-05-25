@@ -121,6 +121,10 @@ playground cluster plugin add --name load-balancer --cluster my-cluster
 # This plugin configures cluster domains and ArgoCD ingress
 playground cluster plugin add --name ingress --cluster my-cluster
 
+# Install TLS plugin (requires cert-manager)
+# This plugin generates CA certificates and sets up cluster issuer
+playground cluster plugin add --name tls --cluster my-cluster
+
 # Uninstall a plugin
 playground cluster plugin remove --name argocd --cluster my-cluster
 
@@ -153,6 +157,64 @@ playground cluster plugin add --name ingress --cluster my-cluster
 ```
 
 After installation, the plugin will provide commands to add entries to your `/etc/hosts` file for local domain access.
+
+#### TLS Plugin
+
+The TLS plugin provides SSL/TLS certificate management for your cluster using self-signed CA certificates:
+
+**Features:**
+- Generates self-signed CA certificate for `*.{cluster-name}.local` domain
+- Creates Kubernetes secret with CA certificate and private key
+- Sets up cert-manager ClusterIssuer for automatic certificate generation
+- Provides OS-specific instructions for trusting the CA certificate
+- 10-year certificate validity period
+- Supports macOS, Linux, and Windows trust store integration
+
+**Dependencies:**
+- `cert-manager` plugin must be installed
+
+**Usage:**
+```bash
+# Install cert-manager first
+playground cluster plugin add --name cert-manager --cluster my-cluster
+
+# Install TLS plugin
+playground cluster plugin add --name tls --cluster my-cluster
+```
+
+**Generated Resources:**
+- Secret: `local-ca-secret` in `cert-manager` namespace
+- ClusterIssuer: `local-ca-issuer`
+
+**Using TLS Certificates:**
+After installation, you can use the cluster issuer in your ingress resources:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    cert-manager.io/cluster-issuer: local-ca-issuer
+spec:
+  tls:
+  - hosts:
+    - my-app.my-cluster.local
+    secretName: my-app-tls
+  rules:
+  - host: my-app.my-cluster.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: my-app
+            port:
+              number: 80
+```
+
+The plugin will provide platform-specific commands to trust the CA certificate in your system's trust store.
 
 ## Development
 
