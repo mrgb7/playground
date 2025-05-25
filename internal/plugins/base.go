@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/mrgb7/playground/internal/installer"
+	"github.com/mrgb7/playground/pkg/logger"
 )
 
 const (
@@ -30,9 +31,36 @@ func (b *BasePlugin) UnifiedInstall(kubeConfig, clusterName string, ensure ...bo
 		return fmt.Errorf("failed to create installer: %w", err)
 	}
 
+	// Determine installer type for tracking
+	var installerType string
+	switch inst.(type) {
+	case *installer.ArgoInstaller:
+		installerType = InstallerTypeArgoCD
+	case *installer.HelmInstaller:
+		installerType = InstallerTypeHelm
+	default:
+		installerType = "unknown"
+	}
+
 	opts := newInstallOptions(b.plugin, kubeConfig)
 
-	return inst.Install(opts)
+	// Install the plugin
+	err = inst.Install(opts)
+	if err != nil {
+		return err
+	}
+
+	tracker, trackerErr := NewInstallerTracker(kubeConfig)
+	if trackerErr != nil {
+		logger.Warnln("Failed to create installer tracker after installing %s: %v", b.plugin.GetName(), trackerErr)
+	} else {
+		recordErr := tracker.RecordPluginInstaller(b.plugin.GetName(), installerType)
+		if recordErr != nil {
+			logger.Warnln("Failed to record installer type for %s: %v", b.plugin.GetName(), recordErr)
+		}
+	}
+
+	return nil
 }
 
 func (b *BasePlugin) UnifiedUninstall(kubeConfig, clusterName string, ensure ...bool) error {
@@ -41,7 +69,24 @@ func (b *BasePlugin) UnifiedUninstall(kubeConfig, clusterName string, ensure ...
 		return fmt.Errorf("failed to create installer: %w", err)
 	}
 	opts := newInstallOptions(b.plugin, kubeConfig)
-	return inst.UnInstall(opts)
+
+	// Uninstall the plugin
+	err = inst.UnInstall(opts)
+	if err != nil {
+		return err
+	}
+
+	tracker, trackerErr := NewInstallerTracker(kubeConfig)
+	if trackerErr != nil {
+		logger.Warnln("Failed to create installer tracker after uninstalling %s: %v", b.plugin.GetName(), trackerErr)
+	} else {
+		removeErr := tracker.RemovePluginInstaller(b.plugin.GetName())
+		if removeErr != nil {
+			logger.Warnln("Failed to remove installer tracking for %s: %v", b.plugin.GetName(), removeErr)
+		}
+	}
+
+	return nil
 }
 
 func newInstallOptions(plugin Plugin, kubeConfig string) *installer.InstallOptions {
