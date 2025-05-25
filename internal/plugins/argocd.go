@@ -74,7 +74,11 @@ func (a *Argocd) getValuesContent() (map[string]interface{}, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch values file: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Debugln("Failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to fetch values file: HTTP %d %s", resp.StatusCode, resp.Status)

@@ -219,6 +219,26 @@ func (t *TLS) storeCASecret(caCert, caKey []byte) error {
 	_, err := t.k8sClient.Clientset.CoreV1().Secrets(CertManagerNamespace).Create(ctx, secret, metav1.CreateOptions{})
 	switch {
 	case err != nil && strings.Contains(err.Error(), "already exists"):
+		// Get the existing secret to preserve metadata
+		existing, getErr := t.k8sClient.Clientset.CoreV1().Secrets(CertManagerNamespace).Get(ctx, TLSSecretName, metav1.GetOptions{})
+		if getErr != nil {
+			return fmt.Errorf("failed to get existing CA secret: %w", getErr)
+		}
+
+		// Preserve the existing metadata and update only the data
+		secret.ResourceVersion = existing.ResourceVersion
+		secret.UID = existing.UID
+		secret.CreationTimestamp = existing.CreationTimestamp
+		secret.Generation = existing.Generation
+
+		// Copy any existing labels and annotations
+		if existing.Labels != nil {
+			secret.Labels = existing.Labels
+		}
+		if existing.Annotations != nil {
+			secret.Annotations = existing.Annotations
+		}
+
 		_, err = t.k8sClient.Clientset.CoreV1().Secrets(CertManagerNamespace).Update(ctx, secret, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to update existing CA secret: %w", err)
@@ -239,6 +259,12 @@ func (t *TLS) createClusterIssuer() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+	gvr := schema.GroupVersionResource{
+		Group:    "cert-manager.io",
+		Version:  "v1",
+		Resource: "clusterissuers",
+	}
+
 	clusterIssuer := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "cert-manager.io/v1",
@@ -254,15 +280,29 @@ func (t *TLS) createClusterIssuer() error {
 		},
 	}
 
-	gvr := schema.GroupVersionResource{
-		Group:    "cert-manager.io",
-		Version:  "v1",
-		Resource: "clusterissuers",
-	}
-
 	_, err := t.k8sClient.Dynamic.Resource(gvr).Create(ctx, clusterIssuer, metav1.CreateOptions{})
 	switch {
 	case err != nil && strings.Contains(err.Error(), "already exists"):
+		// Get the existing cluster issuer to preserve metadata
+		existing, getErr := t.k8sClient.Dynamic.Resource(gvr).Get(ctx, TLSClusterIssuerName, metav1.GetOptions{})
+		if getErr != nil {
+			return fmt.Errorf("failed to get existing cluster issuer: %w", getErr)
+		}
+
+		// Preserve the existing metadata and update only the spec
+		clusterIssuer.SetResourceVersion(existing.GetResourceVersion())
+		clusterIssuer.SetUID(existing.GetUID())
+		clusterIssuer.SetCreationTimestamp(existing.GetCreationTimestamp())
+		clusterIssuer.SetGeneration(existing.GetGeneration())
+
+		// Copy any existing labels and annotations
+		if labels := existing.GetLabels(); labels != nil {
+			clusterIssuer.SetLabels(labels)
+		}
+		if annotations := existing.GetAnnotations(); annotations != nil {
+			clusterIssuer.SetAnnotations(annotations)
+		}
+
 		_, err = t.k8sClient.Dynamic.Resource(gvr).Update(ctx, clusterIssuer, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to update existing cluster issuer: %w", err)
@@ -323,7 +363,11 @@ func (t *TLS) printTrustInstructions(caCert []byte) error {
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file: %w", err)
 	}
-	defer tempFile.Close()
+	defer func() {
+		if err := tempFile.Close(); err != nil {
+			logger.Debugln("Failed to close temporary file: %v", err)
+		}
+	}()
 
 	if _, err := tempFile.Write(caCert); err != nil {
 		return fmt.Errorf("failed to write certificate to temp file: %w", err)

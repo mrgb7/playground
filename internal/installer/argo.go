@@ -208,7 +208,11 @@ func (a *ArgoInstaller) authenticate(password string) error {
 	if err != nil {
 		return fmt.Errorf("failed to authenticate: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Debugln("Failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -286,7 +290,11 @@ func (a *ArgoInstaller) createApplication(options *InstallOptions) error {
 	if err != nil {
 		return fmt.Errorf("failed to create application: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Debugln("Failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
@@ -316,7 +324,11 @@ func (a *ArgoInstaller) deleteApplication(options *InstallOptions) error {
 	if err != nil {
 		return fmt.Errorf("failed to delete application: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Debugln("Failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent &&
 		resp.StatusCode != http.StatusNotFound {
