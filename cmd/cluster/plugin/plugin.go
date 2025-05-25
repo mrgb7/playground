@@ -29,7 +29,7 @@ func executePluginOperation(pluginName, clusterName string, operation pluginOper
 		return err
 	}
 
-	pluginsList, err := plugins.CreatePluginsList(c.KubeConfig, ip)
+	pluginsList, err := plugins.CreatePluginsList(c.KubeConfig, ip, c.Name)
 	if err != nil {
 		logger.Errorln("Failed to create plugins list: %v", err)
 		return err

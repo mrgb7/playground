@@ -109,14 +109,50 @@ playground cluster clean
 
 ```bash
 # Install ArgoCD plugin
-playground cluster plugin install argocd --cluster my-cluster
+playground cluster plugin add --name argocd --cluster my-cluster
+
+# Install nginx ingress controller
+playground cluster plugin add --name nginx-ingress --cluster my-cluster
+
+# Install load balancer (MetalLB)
+playground cluster plugin add --name load-balancer --cluster my-cluster
+
+# Install ingress plugin (requires nginx and load-balancer)
+# This plugin configures cluster domains and ArgoCD ingress
+playground cluster plugin add --name ingress --cluster my-cluster
 
 # Uninstall a plugin
-playground cluster plugin uninstall argocd --cluster my-cluster
+playground cluster plugin remove --name argocd --cluster my-cluster
 
 # List available plugins
 playground cluster plugin list
 ```
+
+#### Ingress Plugin
+
+The ingress plugin provides domain-based access to your cluster services:
+
+**Features:**
+- Configures cluster domain: `{cluster-name}.local`
+- Automatically sets up ArgoCD ingress if ArgoCD is installed
+- Ensures nginx service is exposed as LoadBalancer
+- Provides `/etc/hosts` configuration commands
+
+**Dependencies:**
+- `nginx-ingress` plugin must be installed
+- `load-balancer` plugin must be installed
+
+**Usage:**
+```bash
+# Install dependencies first
+playground cluster plugin add --name load-balancer --cluster my-cluster
+playground cluster plugin add --name nginx-ingress --cluster my-cluster
+
+# Install ingress plugin
+playground cluster plugin add --name ingress --cluster my-cluster
+```
+
+After installation, the plugin will provide commands to add entries to your `/etc/hosts` file for local domain access.
 
 ## Development
 
