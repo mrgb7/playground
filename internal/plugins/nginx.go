@@ -40,7 +40,7 @@ func (n *Nginx) Install(kubeConfig, clusterName string, ensure ...bool) error {
 	if err := n.checkDependencies(kubeConfig); err != nil {
 		return fmt.Errorf("dependency check failed: %w", err)
 	}
-	
+
 	return n.UnifiedInstall(kubeConfig, clusterName, ensure...)
 }
 
@@ -79,7 +79,7 @@ func (n *Nginx) checkDependencies(kubeConfig string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create loadbalancer client: %w", err)
 	}
-	
+
 	lbStatus := lb.Status()
 	if !strings.Contains(lbStatus, StatusRunning) {
 		return fmt.Errorf("load-balancer plugin is required but not installed/running. Status: %s", lbStatus)
