@@ -28,8 +28,8 @@ func CreatePluginsList(kubeConfig, masterClusterIP string) ([]Plugin, error) {
 }
 
 var List = []Plugin{
-	&Argocd{},
-	&CertManager{},
-	&LoadBalancer{},
+	NewArgocd(""),
+	NewCertManager(""),
+	NewLoadBalancer("", ""),
 	NewNginx(""),
 }
