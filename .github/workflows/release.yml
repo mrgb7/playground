@@ -3,6 +3,12 @@ name: Release
 on:
   push:
     branches: [ main ]
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+      - 'install.sh'
+      - '.gitignore'
+      - 'LICENSE'
   workflow_dispatch:
     inputs:
       version_type:
