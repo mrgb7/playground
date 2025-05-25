@@ -128,6 +128,9 @@ func (n *Nginx) GetChartValues() map[string]interface{} {
 					"enabled": false,
 				},
 			},
+			"admissionWebhooks": map[string]interface{}{
+				"enabled": false,
+			},
 		},
 		"defaultBackend": map[string]interface{}{
 			"enabled": true,
