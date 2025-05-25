@@ -43,7 +43,7 @@ func TestNginx_GetVersion(t *testing.T) {
 
 func TestNginx_GetChartName(t *testing.T) {
 	nginx := NewNginx("")
-	expected := "ingress-nginx"
+	expected := NginxChartName
 	if nginx.GetChartName() != expected {
 		t.Errorf("expected chart name %s, got %s", expected, nginx.GetChartName())
 	}
@@ -59,7 +59,7 @@ func TestNginx_GetRepository(t *testing.T) {
 
 func TestNginx_GetRepoName(t *testing.T) {
 	nginx := NewNginx("")
-	expected := "ingress-nginx"
+	expected := NginxRepoName
 	if nginx.GetRepoName() != expected {
 		t.Errorf("expected repo name %s, got %s", expected, nginx.GetRepoName())
 	}
@@ -113,8 +113,8 @@ func TestNginx_Constants(t *testing.T) {
 		t.Errorf("expected DefaultNginxReplicas to be 2, got %d", DefaultNginxReplicas)
 	}
 
-	if NginxNamespace != "ingress-nginx" {
-		t.Errorf("expected NginxNamespace to be 'ingress-nginx', got '%s'", NginxNamespace)
+	if NginxNamespace != NginxChartName {
+		t.Errorf("expected NginxNamespace to be '%s', got '%s'", NginxChartName, NginxNamespace)
 	}
 
 	if NginxChartVersion != "4.11.3" {
