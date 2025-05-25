@@ -21,6 +21,12 @@ type ClusterConfig struct {
 	Name               string
 	Size               int
 	WithCoreComponents bool
+	MasterCPUs         int
+	MasterMemory       string
+	MasterDisk         string
+	WorkerCPUs         int
+	WorkerMemory       string
+	WorkerDisk         string
 }
 
 // workerError represents an error that occurred while configuring a worker node
@@ -33,6 +39,12 @@ var (
 	cCreateName        string
 	cCreateSize        int
 	withCoreComponents bool
+	masterCPUs         int
+	masterMemory       string
+	masterDisk         string
+	workerCPUs         int
+	workerMemory       string
+	workerDisk         string
 )
 
 const (
@@ -80,6 +92,38 @@ func validateClusterSize(size int) error {
 	return nil
 }
 
+func validateCPUCount(cpus int, nodeType string) error {
+	if cpus < 1 {
+		return fmt.Errorf("%s CPU count must be at least 1", nodeType)
+	}
+	if cpus > 32 {
+		return fmt.Errorf("%s CPU count cannot exceed 32", nodeType)
+	}
+	return nil
+}
+
+func validateMemoryFormat(memory, nodeType string) error {
+	matched, err := regexp.MatchString(`^[0-9]+[GM]$`, memory)
+	if err != nil {
+		return fmt.Errorf("error validating %s memory format: %w", nodeType, err)
+	}
+	if !matched {
+		return fmt.Errorf("%s memory must be in format like '2G' or '1024M'", nodeType)
+	}
+	return nil
+}
+
+func validateDiskFormat(disk, nodeType string) error {
+	matched, err := regexp.MatchString(`^[0-9]+[GMT]$`, disk)
+	if err != nil {
+		return fmt.Errorf("error validating %s disk format: %w", nodeType, err)
+	}
+	if !matched {
+		return fmt.Errorf("%s disk must be in format like '20G', '1024M', or '1T'", nodeType)
+	}
+	return nil
+}
+
 var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new cluster",
@@ -89,6 +133,12 @@ var createCmd = &cobra.Command{
 			Name:               cCreateName,
 			Size:               cCreateSize,
 			WithCoreComponents: withCoreComponents,
+			MasterCPUs:         masterCPUs,
+			MasterMemory:       masterMemory,
+			MasterDisk:         masterDisk,
+			WorkerCPUs:         workerCPUs,
+			WorkerMemory:       workerMemory,
+			WorkerDisk:         workerDisk,
 		}
 
 		if err := createCluster(config); err != nil {
@@ -107,6 +157,30 @@ func createCluster(config *ClusterConfig) error {
 		return fmt.Errorf("invalid cluster size: %w", err)
 	}
 
+	if err := validateCPUCount(config.MasterCPUs, "master"); err != nil {
+		return fmt.Errorf("invalid master CPU count: %w", err)
+	}
+
+	if err := validateMemoryFormat(config.MasterMemory, "master"); err != nil {
+		return fmt.Errorf("invalid master memory format: %w", err)
+	}
+
+	if err := validateDiskFormat(config.MasterDisk, "master"); err != nil {
+		return fmt.Errorf("invalid master disk format: %w", err)
+	}
+
+	if err := validateCPUCount(config.WorkerCPUs, "worker"); err != nil {
+		return fmt.Errorf("invalid worker CPU count: %w", err)
+	}
+
+	if err := validateMemoryFormat(config.WorkerMemory, "worker"); err != nil {
+		return fmt.Errorf("invalid worker memory format: %w", err)
+	}
+
+	if err := validateDiskFormat(config.WorkerDisk, "worker"); err != nil {
+		return fmt.Errorf("invalid worker disk format: %w", err)
+	}
+
 	client := multipass.NewMultipassClient()
 	if !client.IsMultipassInstalled() {
 		return fmt.Errorf("multipass is not installed or not in PATH")
@@ -118,7 +192,7 @@ func createCluster(config *ClusterConfig) error {
 func executeClusterCreation(client multipass.Client, config *ClusterConfig) error {
 	var wg sync.WaitGroup
 
-	if err := client.CreateCluster(config.Name, config.Size, &wg); err != nil {
+	if err := client.CreateCluster(config.Name, config.Size, config.MasterCPUs, config.MasterMemory, config.MasterDisk, config.WorkerCPUs, config.WorkerMemory, config.WorkerDisk, &wg); err != nil {
 		return fmt.Errorf("failed to create cluster: %w", err)
 	}
 
@@ -315,6 +389,12 @@ func init() {
 	createCmd.Flags().IntVarP(&cCreateSize, "size", "s", 1, "Number of nodes in the cluster")
 	createCmd.Flags().BoolVarP(&withCoreComponents, "with-core-component", "c", false,
 		"Install core components (nginx,cert-manager)")
+	createCmd.Flags().IntVarP(&masterCPUs, "master-cpus", "m", 2, "Number of CPUs for the master node")
+	createCmd.Flags().StringVarP(&masterMemory, "master-memory", "M", "2G", "Memory for the master node")
+	createCmd.Flags().StringVarP(&masterDisk, "master-disk", "D", "20G", "Disk for the master node")
+	createCmd.Flags().IntVarP(&workerCPUs, "worker-cpus", "w", 2, "Number of CPUs for each worker node")
+	createCmd.Flags().StringVarP(&workerMemory, "worker-memory", "W", "2G", "Memory for each worker node")
+	createCmd.Flags().StringVarP(&workerDisk, "worker-disk", "d", "20G", "Disk for each worker node")
 	if err := createCmd.MarkFlagRequired("name"); err != nil {
 		logger.Errorln("Failed to mark name flag as required: %v", err)
 	}

@@ -335,12 +335,71 @@ The tool uses sensible defaults but can be configured through:
 - Environment variables
 - Configuration files (planned)
 
+## Quick Start
+
+### Create a Cluster
+
+```bash
+# Create a simple single-node cluster
+playground cluster create --name my-cluster
+
+# Create a multi-node cluster
+playground cluster create --name my-cluster --size 3
+
+# Create a cluster with custom resource specifications
+playground cluster create --name my-cluster --size 3 \
+  --master-cpus 4 --master-memory 4G --master-disk 50G \
+  --worker-cpus 2 --worker-memory 4G --worker-disk 30G
+
+# Create a cluster with core components
+playground cluster create --name my-cluster --size 3 --with-core-component
+```
+
+### Cluster Resource Configuration
+
+You can customize the CPU, memory, and disk resources for master and worker nodes:
+
+**Master Node Configuration:**
+- `--master-cpus`: Number of CPUs (1-32, default: 2)
+- `--master-memory`: Memory allocation (format: `2G`, `1024M`, default: `2G`)
+- `--master-disk`: Disk size (format: `20G`, `1024M`, `1T`, default: `20G`)
+
+**Worker Node Configuration:**
+- `--worker-cpus`: Number of CPUs per worker (1-32, default: 2)
+- `--worker-memory`: Memory per worker (format: `2G`, `1024M`, default: `2G`)
+- `--worker-disk`: Disk size per worker (format: `20G`, `1024M`, `1T`, default: `20G`)
+
+**Examples:**
+```bash
+# High-performance cluster
+playground cluster create --name perf-cluster --size 5 \
+  --master-cpus 8 --master-memory 8G --master-disk 100G \
+  --worker-cpus 4 --worker-memory 8G --worker-disk 50G
+
+# Development cluster with minimal resources
+playground cluster create --name dev-cluster --size 2 \
+  --master-cpus 1 --master-memory 1G --master-disk 10G \
+  --worker-cpus 1 --worker-memory 1G --worker-disk 10G
+
+# Mixed workload cluster
+playground cluster create --name mixed-cluster --size 3 \
+  --master-cpus 4 --master-memory 4G --master-disk 30G \
+  --worker-cpus 2 --worker-memory 2G --worker-disk 20G
+```
+
 ### Default Cluster Specifications
 
-- **Master Node**: 2 CPUs, 2GB RAM, 10GB disk
-- **Worker Nodes**: 1 CPU, 1GB RAM, 5GB disk
+When no custom resources are specified, the following defaults are used:
+
+- **Master Node**: 2 CPUs, 2GB RAM, 20GB disk
+- **Worker Nodes**: 2 CPUs, 2GB RAM, 20GB disk
 - **K3s Version**: Latest stable
 - **Disabled Components**: servicelb, traefik (to avoid conflicts)
+
+**Resource Limits:**
+- CPU: 1-32 cores per node
+- Memory: Must be specified with `G` (GB) or `M` (MB) suffix
+- Disk: Must be specified with `G` (GB), `M` (MB), or `T` (TB) suffix
 
 ## Security Considerations
 

@@ -16,7 +16,7 @@ import (
 
 type Client interface {
 	IsMultipassInstalled() bool
-	CreateCluster(clusterName string, nodeCount int, wg *sync.WaitGroup) error
+	CreateCluster(clusterName string, nodeCount int, masterCPUs int, masterMemory, masterDisk string, workerCPUs int, workerMemory, workerDisk string, wg *sync.WaitGroup) error
 	DeleteCluster(clusterName string, wg *sync.WaitGroup) error
 	ListClusters() ([]string, error)
 	CreateNode(name string, cpus int, memory string, disk string) error
@@ -69,14 +69,14 @@ func (m *MultipassClient) IsMultipassInstalled() bool {
 	return err == nil
 }
 
-func (m *MultipassClient) CreateCluster(clusterName string, nodeCount int, wg *sync.WaitGroup) error {
+func (m *MultipassClient) CreateCluster(clusterName string, nodeCount int, masterCPUs int, masterMemory, masterDisk string, workerCPUs int, workerMemory, workerDisk string, wg *sync.WaitGroup) error {
 	masterName := fmt.Sprintf("%s-master", clusterName)
 	errChan := make(chan error, nodeCount)
 
 	wg.Add(1)
 	go func(name string) {
 		defer wg.Done()
-		err := m.CreateNode(name, DefaultMasterCPUs, DefaultMasterMemory, DefaultMasterDisk)
+		err := m.CreateNode(name, masterCPUs, masterMemory, masterDisk)
 		if err != nil {
 			logger.Errorf("failed to create master node %s: %v\n", name, err)
 			errChan <- fmt.Errorf("failed to create master node %s: %w", name, err)
@@ -90,7 +90,7 @@ func (m *MultipassClient) CreateCluster(clusterName string, nodeCount int, wg *s
 		go func(workerIndex int) {
 			defer wg.Done()
 			nodeName := fmt.Sprintf("%s-worker-%d", clusterName, workerIndex)
-			err := m.CreateNode(nodeName, DefaultWorkerCPUs, DefaultWorkerMemory, DefaultWorkerDisk)
+			err := m.CreateNode(nodeName, workerCPUs, workerMemory, workerDisk)
 			if err != nil {
 				logger.Errorln("failed to create worker node %s: %v", nodeName, err)
 				errChan <- fmt.Errorf("failed to create worker node %s: %w", nodeName, err)
