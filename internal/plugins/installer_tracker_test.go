@@ -91,5 +91,3 @@ func TestInstallerTrackerStructure(t *testing.T) {
 		t.Errorf("Expected kubeConfig to be 'test-config', got '%s'", tracker.kubeConfig)
 	}
 }
-
-
