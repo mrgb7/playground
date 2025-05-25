@@ -24,26 +24,36 @@ A CLI tool for creating and managing K3s clusters using Multipass VMs. This tool
 
 ### Pre-built Binaries
 
-Download the latest release for your platform:
+Download the latest release for your platform. You can either download manually from the [releases page](https://github.com/mrgb7/playground/releases/latest) or use the following commands:
 
 ```bash
+# Get the latest release information
+LATEST_RELEASE=$(curl -s https://api.github.com/repos/mrgb7/playground/releases/latest | grep tag_name | cut -d '"' -f 4)
+
 # Linux AMD64
-curl -L -o playground.tar.gz https://github.com/mrgb7/playground/releases/latest/download/playground-latest-linux-amd64.tar.gz
+curl -L -o playground.tar.gz https://github.com/mrgb7/playground/releases/download/${LATEST_RELEASE}/playground-${LATEST_RELEASE}-linux-amd64.tar.gz
 tar -xzf playground.tar.gz
 chmod +x playground-linux-amd64
 sudo mv playground-linux-amd64 /usr/local/bin/playground
 
 # macOS Intel
-curl -L -o playground.tar.gz https://github.com/mrgb7/playground/releases/latest/download/playground-latest-darwin-amd64.tar.gz
+curl -L -o playground.tar.gz https://github.com/mrgb7/playground/releases/download/${LATEST_RELEASE}/playground-${LATEST_RELEASE}-darwin-amd64.tar.gz
 tar -xzf playground.tar.gz
 chmod +x playground-darwin-amd64
 sudo mv playground-darwin-amd64 /usr/local/bin/playground
 
 # macOS Apple Silicon
-curl -L -o playground.tar.gz https://github.com/mrgb7/playground/releases/latest/download/playground-latest-darwin-arm64.tar.gz
+curl -L -o playground.tar.gz https://github.com/mrgb7/playground/releases/download/${LATEST_RELEASE}/playground-${LATEST_RELEASE}-darwin-arm64.tar.gz
 tar -xzf playground.tar.gz
 chmod +x playground-darwin-arm64
 sudo mv playground-darwin-arm64 /usr/local/bin/playground
+```
+
+**Alternative: Quick install script**
+
+```bash
+# One-liner installation (detects your platform automatically)
+curl -fsSL https://raw.githubusercontent.com/mrgb7/playground/main/install.sh | bash
 ```
 
 ### From Source
