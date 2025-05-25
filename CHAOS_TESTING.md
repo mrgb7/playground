@@ -4,6 +4,26 @@
 
 The `chaos.sh` script is a comprehensive chaos engineering tool designed to stress-test and validate the robustness of the K3s cluster management system. It performs various failure scenarios, edge cases, and stress conditions to ensure the system behaves correctly under adverse conditions.
 
+## ⚠️ **Important Limitations**
+
+**This chaos testing script requires Multipass and cannot be run in CI/CD environments** because:
+- Multipass requires hardware virtualization (VT-x/AMD-V)
+- Docker containers don't support nested virtualization
+- Most CI/CD runners (GitHub Actions, GitLab CI, etc.) don't provide VM capabilities
+- The script creates actual VMs for testing, not containers
+
+**Use this script for:**
+- Local development testing
+- Manual QA validation
+- Pre-release verification on physical machines
+- Developer workstation validation
+
+**For CI/CD, use instead:**
+- Unit tests (`make test`)
+- Linting (`make lint`) 
+- Build validation (`make build`)
+- Integration tests with mocked K8s clients
+
 ## Features
 
 ### 🔧 **Test Categories**
@@ -65,10 +85,12 @@ The `chaos.sh` script is a comprehensive chaos engineering tool designed to stre
 
 ### Prerequisites
 
+- **Physical machine or VM with virtualization enabled**
 - Multipass installed and running
 - Go development environment
 - Make build system
-- Sufficient system resources for multiple VMs
+- Sufficient system resources for multiple VMs (8GB+ RAM recommended)
+- **NOT suitable for Docker containers or CI/CD environments**
 
 ### Running the Tests
 
@@ -159,22 +181,35 @@ INVALID_PLUGINS=("non-existent-plugin" "fake-plugin" "missing-dep")
 
 ### Common Issues
 
-1. **Resource Exhaustion**
+1. **Virtualization Not Available**
+   ```bash
+   # Check if virtualization is enabled
+   # On Linux:
+   grep -E "(vmx|svm)" /proc/cpuinfo
+   
+   # On macOS:
+   sysctl kern.hv_support
+   ```
+
+2. **Resource Exhaustion**
    ```bash
    # If you encounter resource issues, reduce concurrent operations
    # or increase system resources
    ```
 
-2. **Multipass Issues**
+3. **Multipass Issues**
    ```bash
    # Ensure Multipass is running
    multipass version
    
    # Check available resources
    multipass info
+   
+   # Restart Multipass if needed
+   sudo snap restart multipass  # On Linux
    ```
 
-3. **Network Issues**
+4. **Network Issues**
    ```bash
    # Check internet connectivity for plugin downloads
    curl -I https://github.com
@@ -194,18 +229,48 @@ The script includes automatic cleanup mechanisms:
 ./playground cluster delete <cluster-name> --force
 ```
 
-## Integration with CI/CD
+## Alternative Testing Approaches
 
-The chaos script is designed for integration with continuous integration systems:
+### For CI/CD Environments
+
+Since this chaos script cannot run in CI/CD, use these alternatives:
 
 ```bash
-# CI/CD usage
-./chaos.sh && echo "Chaos tests passed" || echo "Chaos tests failed"
+# Automated CI/CD testing (works in Docker/containers)
+make ci                    # Full CI pipeline
+make test                  # Unit tests only
+make lint                  # Code linting
+make build                 # Build validation
+
+# Integration tests with mocked clients
+go test -tags=integration ./...
 ```
 
-Exit codes:
-- `0`: All tests passed (including expected failures)
-- `1`: Unexpected test failures occurred
+### For Containerized Testing
+
+Create separate integration tests that don't require VMs:
+
+```bash
+# Example: Test CLI without actual clusters
+go test ./cmd/... -args --dry-run
+
+# Test plugin logic with mocked K8s clients
+go test ./internal/plugins/... -mock-k8s
+```
+
+## When to Use Chaos Testing
+
+### Recommended Usage
+- **Pre-release validation** on developer machines
+- **Manual QA testing** before major releases
+- **Local development** to verify changes
+- **Performance testing** on staging environments
+
+### Not Recommended For
+- ❌ CI/CD pipelines (use unit/integration tests instead)
+- ❌ Docker environments
+- ❌ Cloud CI runners without nested virtualization
+- ❌ Resource-constrained environments
 
 ## Performance Considerations
 
@@ -213,6 +278,7 @@ Exit codes:
 - Each test cluster uses VM resources
 - Plan for 2-4 GB RAM per cluster
 - Allow 5-10 minutes per cluster creation
+- **Minimum 8GB RAM recommended for host machine**
 
 ### Timing
 - Full test suite: 30-60 minutes
@@ -268,9 +334,9 @@ When adding new chaos tests:
 1. **Always run cleanup** after testing
 2. **Monitor system resources** during execution
 3. **Review logs** for unexpected behaviors
-4. **Run regularly** to catch regressions
+4. **Run regularly** to catch regressions (but locally, not in CI)
 5. **Update tests** when adding new features
 
 ## Conclusion
 
-The chaos testing script provides comprehensive validation of system robustness and helps ensure production readiness by testing various failure scenarios and edge cases. Regular execution helps maintain system reliability and catch issues before they reach production environments. 
+The chaos testing script provides comprehensive validation of system robustness for **local development and manual testing**. While it cannot be integrated into CI/CD pipelines due to Multipass virtualization requirements, it serves as an essential tool for thorough pre-release validation and developer confidence testing. Regular execution on developer machines helps maintain system reliability and catch issues before they reach production environments. 
