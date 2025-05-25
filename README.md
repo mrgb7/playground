@@ -121,6 +121,10 @@ playground cluster plugin add --name load-balancer --cluster my-cluster
 # This plugin configures cluster domains and ArgoCD ingress
 playground cluster plugin add --name ingress --cluster my-cluster
 
+# Install TLS plugin (requires cert-manager)
+# This plugin generates CA certificates and sets up cluster issuer
+playground cluster plugin add --name tls --cluster my-cluster
+
 # Uninstall a plugin
 playground cluster plugin remove --name argocd --cluster my-cluster
 
@@ -135,12 +139,16 @@ The ingress plugin provides domain-based access to your cluster services:
 **Features:**
 - Configures cluster domain: `{cluster-name}.local`
 - Automatically sets up ArgoCD ingress if ArgoCD is installed
+- Automatic TLS certificate generation when TLS plugin is installed
 - Ensures nginx service is exposed as LoadBalancer
 - Provides `/etc/hosts` configuration commands
 
 **Dependencies:**
 - `nginx-ingress` plugin must be installed
 - `load-balancer` plugin must be installed
+
+**Optional Enhancement:**
+- `tls` plugin for automatic HTTPS certificate generation
 
 **Usage:**
 ```bash
@@ -150,9 +158,84 @@ playground cluster plugin add --name nginx-ingress --cluster my-cluster
 
 # Install ingress plugin
 playground cluster plugin add --name ingress --cluster my-cluster
+
+# Optional: Install TLS plugin for HTTPS support
+playground cluster plugin add --name cert-manager --cluster my-cluster
+playground cluster plugin add --name tls --cluster my-cluster
+# Now re-run ingress plugin to enable HTTPS
+playground cluster plugin add --name ingress --cluster my-cluster
 ```
 
-After installation, the plugin will provide commands to add entries to your `/etc/hosts` file for local domain access.
+After installation, the plugin will provide commands to add entries to your `/etc/hosts` file for local domain access. If the TLS plugin is installed, ArgoCD will automatically be configured with HTTPS using the generated CA certificate.
+
+#### TLS Plugin
+
+The TLS plugin provides SSL/TLS certificate management for your cluster using self-signed CA certificates:
+
+**Features:**
+- Generates self-signed CA certificate for `*.{cluster-name}.local` domain
+- Creates Kubernetes secret with CA certificate and private key
+- Sets up cert-manager ClusterIssuer for automatic certificate generation
+- Provides OS-specific instructions for trusting the CA certificate
+- 10-year certificate validity period
+- Supports macOS, Linux, and Windows trust store integration
+- Automatic ArgoCD HTTPS configuration when used with ingress plugin
+
+**Dependencies:**
+- `cert-manager` plugin must be installed
+
+**Usage:**
+```bash
+# Install cert-manager first
+playground cluster plugin add --name cert-manager --cluster my-cluster
+
+# Install TLS plugin
+playground cluster plugin add --name tls --cluster my-cluster
+
+# If ingress plugin is already installed, re-run it to enable HTTPS
+playground cluster plugin add --name ingress --cluster my-cluster
+```
+
+**Integration with Ingress Plugin:**
+When both TLS and ingress plugins are installed, the ingress plugin automatically:
+- Detects the TLS cluster issuer (`local-ca-issuer`)
+- Configures ArgoCD ingress with TLS certificate generation
+- Updates ArgoCD to use HTTPS instead of HTTP
+- Displays HTTPS URLs in the setup instructions
+
+**Generated Resources:**
+- Secret: `local-ca-secret` in `cert-manager` namespace
+- ClusterIssuer: `local-ca-issuer`
+
+**Using TLS Certificates:**
+After installation, you can use the cluster issuer in your ingress resources:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    cert-manager.io/cluster-issuer: local-ca-issuer
+spec:
+  tls:
+  - hosts:
+    - my-app.my-cluster.local
+    secretName: my-app-tls
+  rules:
+  - host: my-app.my-cluster.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: my-app
+            port:
+              number: 80
+```
+
+The plugin will provide platform-specific commands to trust the CA certificate in your system's trust store.
 
 ## Development
 
