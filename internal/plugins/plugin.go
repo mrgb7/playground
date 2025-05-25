@@ -27,9 +27,12 @@ func CreatePluginsList(kubeConfig, masterClusterIP string) ([]Plugin, error) {
 	}, nil
 }
 
-var List = []Plugin{
-	NewArgocd(""),
-	NewCertManager(""),
-	NewLoadBalancer("", ""),
-	NewNginx(""),
+func GetBasicPluginsList() []Plugin {
+	return []Plugin{
+		NewArgocd(""),
+		NewCertManager(""),
+		NewNginx(""),
+	}
 }
+
+var List = GetBasicPluginsList()
