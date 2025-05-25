@@ -164,7 +164,8 @@ func (i *Ingress) configureArgoCDIngress() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	existingIngress, err := i.k8sClient.Clientset.NetworkingV1().Ingresses("argocd").Get(ctx, "argocd-server", metav1.GetOptions{})
+	existingIngress, err := i.k8sClient.Clientset.NetworkingV1().Ingresses("argocd").Get(
+		ctx, "argocd-server", metav1.GetOptions{})
 	if err != nil && !strings.Contains(err.Error(), "not found") {
 		return fmt.Errorf("failed to check existing ArgoCD ingress: %w", err)
 	}
