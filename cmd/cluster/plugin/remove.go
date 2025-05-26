@@ -5,6 +5,7 @@ import (
 	"github.com/mrgb7/playground/pkg/logger"
 	"github.com/mrgb7/playground/types"
 	"github.com/spf13/cobra"
+	"fmt"
 )
 
 var removeCmd = &cobra.Command{
@@ -22,7 +23,6 @@ var removeCmd = &cobra.Command{
 			return
 		}
 
-		// Validate dependencies and get uninstall order
 		uninstallOrder, err := plugins.ValidateAndGetUninstallOrder(pName, c.KubeConfig, ip, c.Name)
 		if err != nil {
 			logger.Errorln("Dependency validation failed: %v", err)
@@ -31,31 +31,26 @@ var removeCmd = &cobra.Command{
 
 		logger.Infoln("Plugin uninstallation order: %v", uninstallOrder)
 
-		// Get plugins list
 		pluginsList, err := plugins.CreatePluginsList(c.KubeConfig, ip, c.Name)
 		if err != nil {
 			logger.Errorln("Failed to create plugins list: %v", err)
 			return
 		}
 
-		// Create plugin map for quick lookup
 		pluginMap := make(map[string]plugins.Plugin)
 		for _, plugin := range pluginsList {
 			pluginMap[plugin.GetName()] = plugin
 		}
 
-		// Uninstall plugins in dependency order
 		for _, pluginName := range uninstallOrder {
 			plugin, exists := pluginMap[pluginName]
 			if !exists {
-				logger.Errorln("Plugin %s not found", pluginName)
-				return
+				logger.Warnf("Plugin '%s' not found in available plugins", pluginName)
+				continue
 			}
 
-			// Check if plugin is actually installed
-			status := plugin.Status()
-			if !plugins.IsPluginInstalled(status) {
-				logger.Infoln("Plugin %s is not installed, skipping", pluginName)
+			if !plugins.IsPluginInstalled(plugin.Status()) {
+				logger.Infof("Plugin '%s' is not installed, skipping", pluginName)
 				continue
 			}
 
