@@ -60,10 +60,6 @@ func (t *TLS) GetName() string {
 func (t *TLS) Install(kubeConfig, clusterName string, ensure ...bool) error {
 	logger.Infoln("Installing TLS plugin for cluster: %s", clusterName)
 
-	if err := t.checkDependencies(); err != nil {
-		return fmt.Errorf("dependency check failed: %w", err)
-	}
-
 	caCert, caKey, err := t.generateCACertificate()
 	if err != nil {
 		return fmt.Errorf("failed to generate CA certificate: %w", err)
@@ -134,19 +130,6 @@ func (t *TLS) Status() string {
 	}
 
 	return "TLS is configured and ready"
-}
-
-func (t *TLS) checkDependencies() error {
-	logger.Infoln("Checking TLS dependencies...")
-
-	certManager := NewCertManager(t.KubeConfig)
-	cmStatus := certManager.Status()
-	if !strings.Contains(cmStatus, "running") {
-		return fmt.Errorf("cert-manager is required but not installed/running. Status: %s", cmStatus)
-	}
-
-	logger.Successln("All dependencies satisfied")
-	return nil
 }
 
 func (t *TLS) generateCACertificate() ([]byte, []byte, error) {
@@ -432,4 +415,9 @@ func (t *TLS) GetRepoName() string {
 
 func (t *TLS) GetChartValues() map[string]interface{} {
 	return make(map[string]interface{})
+}
+
+// GetDependencies returns the list of plugins that TLS depends on
+func (t *TLS) GetDependencies() []string {
+	return []string{"cert-manager"} // TLS depends on cert-manager
 }

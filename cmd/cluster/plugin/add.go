@@ -3,6 +3,7 @@ package plugin
 import (
 	"github.com/mrgb7/playground/internal/plugins"
 	"github.com/mrgb7/playground/pkg/logger"
+	"github.com/mrgb7/playground/types"
 	"github.com/spf13/cobra"
 )
 
@@ -14,14 +15,65 @@ var (
 var addCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Add a new plugin",
-	Long:  `Add a new plugin to the cluster`,
+	Long:  `Add a new plugin to the cluster with automatic dependency resolution`,
 	Run: func(cmd *cobra.Command, args []string) {
-		installOperation := func(plugin plugins.Plugin, kubeConfig, clusterName string) error {
-			return plugin.Install(kubeConfig, clusterName)
+		c := types.Cluster{
+			Name: cName,
 		}
 
-		_ = executePluginOperation(pName, cName, installOperation,
-			"Successfully installed %s", "Error installing plugin")
+		ip := c.GetMasterIP()
+		if err := c.SetKubeConfig(); err != nil {
+			logger.Errorln("Failed to set kubeconfig: %v", err)
+			return
+		}
+
+		// Validate dependencies and get install order
+		installOrder, err := plugins.ValidateAndGetInstallOrder(pName, c.KubeConfig, ip, c.Name)
+		if err != nil {
+			logger.Errorln("Dependency validation failed: %v", err)
+			return
+		}
+
+		logger.Infoln("Plugin installation order: %v", installOrder)
+
+		// Get plugins list
+		pluginsList, err := plugins.CreatePluginsList(c.KubeConfig, ip, c.Name)
+		if err != nil {
+			logger.Errorln("Failed to create plugins list: %v", err)
+			return
+		}
+
+		// Create plugin map for quick lookup
+		pluginMap := make(map[string]plugins.Plugin)
+		for _, plugin := range pluginsList {
+			pluginMap[plugin.GetName()] = plugin
+		}
+
+		// Install plugins in dependency order
+		for _, pluginName := range installOrder {
+			plugin, exists := pluginMap[pluginName]
+			if !exists {
+				logger.Errorln("Plugin %s not found", pluginName)
+				return
+			}
+
+			// Check if plugin is already installed
+			status := plugin.Status()
+			if plugins.IsPluginInstalled(status) {
+				logger.Infoln("Plugin %s is already installed, skipping", pluginName)
+				continue
+			}
+
+			logger.Infoln("Installing plugin: %s", pluginName)
+			err := plugin.Install(c.KubeConfig, c.Name)
+			if err != nil {
+				logger.Errorln("Error installing plugin %s: %v", pluginName, err)
+				return
+			}
+			logger.Successln("Successfully installed %s", pluginName)
+		}
+
+		logger.Successln("All plugins installed successfully!")
 	},
 }
 
