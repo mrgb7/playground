@@ -26,7 +26,7 @@ func SetSilentMode(silent bool) {
 
 // Info prints info message with format
 func Info(format string, args ...interface{}) {
-	_, _ = infoColor.Printf(format, args...)
+	_, _ = infoColor.Printf(format+"\n", args...)
 }
 
 // Infof is an alias for Info for consistency
@@ -41,7 +41,7 @@ func Infoln(format string, args ...interface{}) {
 
 // Warn prints warning message with format
 func Warn(format string, args ...interface{}) {
-	_, _ = warnColor.Printf(format, args...)
+	_, _ = warnColor.Printf(format+"\n", args...)
 }
 
 // Warnf is an alias for Warn for consistency
@@ -57,7 +57,7 @@ func Warnln(format string, args ...interface{}) {
 // Error prints error message with format (suppressed in silent mode)
 func Error(format string, args ...interface{}) {
 	if !silentMode {
-		_, _ = errorColor.Printf(format, args...)
+		_, _ = errorColor.Printf(format+"\n", args...)
 	}
 }
 
@@ -76,7 +76,7 @@ func Errorln(format string, args ...interface{}) {
 // Debug prints debug message with format (suppressed in silent mode)
 func Debug(format string, args ...interface{}) {
 	if !silentMode {
-		_, _ = debugColor.Printf(format, args...)
+		_, _ = debugColor.Printf(format+"\n", args...)
 	}
 }
 
@@ -94,7 +94,7 @@ func Debugln(format string, args ...interface{}) {
 
 // Success prints success message with format
 func Success(format string, args ...interface{}) {
-	_, _ = successColor.Printf(format, args...)
+	_, _ = successColor.Printf(format+"\n", args...)
 }
 
 // Successf is an alias for Success for consistency
@@ -115,7 +115,7 @@ func Fatal(format string, args ...interface{}) {
 
 // Print prints plain message with format
 func Print(format string, args ...interface{}) {
-	fmt.Printf(format, args...)
+	fmt.Printf(format+"\n", args...)
 }
 
 // Println prints plain message with newline
