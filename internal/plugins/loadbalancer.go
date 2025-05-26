@@ -77,7 +77,7 @@ func (l *LoadBalancer) Status() string {
 	defer cancel()
 	ns, err := l.k8sClient.GetNameSpace(namespace, ctx)
 	if ns == "" || err != nil {
-		logger.Errorln("failed to get metallb namespace: %v", err)
+		logger.Debugf("failed to get metallb namespace: %v", err)
 		return StatusNotInstalled
 	}
 
