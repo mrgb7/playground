@@ -36,21 +36,19 @@ var (
 				logger.Errorln("Error: Please provide a valid cluster name to delete.")
 				return
 			}
-					if err := client.DeleteCluster(clusterToDelete, &wg); err != nil {
-			logger.Errorln("Failed to delete cluster: %v", err)
-			return
-		}
-		wg.Wait()
+			if err := client.DeleteCluster(clusterToDelete, &wg); err != nil {
+				logger.Errorln("Failed to delete cluster: %v", err)
+				return
+			}
+			wg.Wait()
 
-		logger.Infoln("Purging deleted instances...")
-		if err := client.PurgeNodes(); err != nil {
-			logger.Errorln("Failed to purge deleted instances: %v", err)
-			return
-		}
+			logger.Infoln("Purging deleted instances...")
+			if err := client.PurgeNodes(); err != nil {
+				logger.Errorln("Failed to purge deleted instances: %v", err)
+				return
+			}
 
-		logger.Successln("Successfully deleted cluster '%s'", clusterToDelete)
+			logger.Successln("Successfully deleted cluster '%s'", clusterToDelete)
 		},
 	}
 )
-
-
