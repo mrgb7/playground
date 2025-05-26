@@ -418,21 +418,6 @@
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Core Components & Architecture
-
-### Dependency Management System
-- **DependencyGraph**: Unified graph structure with GraphNode containing plugin, dependencies, and dependents
-- **DependencyValidator**: High-level validation orchestrator for install/uninstall operations
-- **GraphNode**: Individual nodes containing plugin interface and bidirectional dependency relationships
-- **Topological Sorting**: Algorithms for dependency resolution and safe removal ordering
-- **Cycle Detection**: DFS-based circular dependency detection with stack tracking
-
-### Plugin System
-- **DependencyPlugin Interface**: Extended plugin interface with `GetDependencies() []string`
-- **Plugin Registry**: Available plugins with their dependency definitions
-- **Installation Orchestration**: Order-aware plugin installation with dependency resolution
-- **Removal Validation**: Reverse dependency checking to prevent breaking changes
-
 ## Technology Stack
 
 - **GoLang**: Core application development
@@ -441,4 +426,3 @@
 - **Helm**: Package management for Kubernetes applications
 - **MetalLB**: Load balancer implementation
 - **Multipass**: VM orchestration and management
-- **Graph Algorithms**: Topological sorting and cycle detection for dependency resolution 
