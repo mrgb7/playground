@@ -315,6 +315,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ## Architecture
 
+For detailed system architecture, component interactions, and design diagrams, see [ARCHITECTURE.md](ARCHITECTURE.md).
+
 The tool is organized into several packages:
 
 - `cmd/`: CLI commands and subcommands
@@ -434,7 +436,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License.
 
 ## Support
 
