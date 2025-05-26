@@ -13,10 +13,10 @@ var PluginCmd = &cobra.Command{
 	Long:  `Manage plugins for the cluster`,
 }
 
-// pluginOperation defines the type of operation to perform on a plugin
+
 type pluginOperation func(plugin plugins.Plugin, kubeConfig, clusterName string) error
 
-// executePluginOperation is a common function to handle plugin operations
+
 func executePluginOperation(pluginName, clusterName string, operation pluginOperation,
 	successMsg, errorMsg string) error {
 	c := types.Cluster{

@@ -7,17 +7,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// getPluginStatusSilently gets plugin status without displaying errors
 func getPluginStatusSilently(plugin plugins.Plugin) string {
-	// Enable silent mode to suppress error logging
 	logger.SetSilentMode(true)
-	
-	// Get the status 
 	status := plugin.Status()
-	
-	// Restore normal logging
 	logger.SetSilentMode(false)
-	
 	return status
 }
 

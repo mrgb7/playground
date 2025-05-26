@@ -22,18 +22,15 @@ var depsCmd = &cobra.Command{
 			return
 		}
 
-		// Get all dependency plugins
 		dependencyPlugins, err := plugins.CreateDependencyPluginsList(c.KubeConfig, ip, c.Name)
 		if err != nil {
 			logger.Errorln("Failed to create dependency plugins list: %v", err)
 			return
 		}
 
-		// Create validator
 		validator := plugins.NewDependencyValidator(dependencyPlugins)
 
 		if pName != "" {
-			// Show dependencies for specific plugin
 			dependencies, dependents := validator.GetDependencyInfo(pName)
 			
 			logger.Infoln("Plugin: %s", pName)
@@ -49,7 +46,6 @@ var depsCmd = &cobra.Command{
 				logger.Infoln("  Dependents: none")
 			}
 		} else {
-			// Show all plugin dependencies
 			logger.Infoln("Plugin Dependency Information:")
 			logger.Infoln("=============================")
 			

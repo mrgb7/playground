@@ -378,7 +378,7 @@ func NewDependencyValidator(plugins []DependencyPlugin) *DependencyValidator {
 	}
 	
 	if graph.HasCycles() {
-		logger.Warnln("Circular dependencies detected in plugin graph!")
+		logger.Error("Circular dependency detected in plugin graph")
 	}
 	
 	return &DependencyValidator{
