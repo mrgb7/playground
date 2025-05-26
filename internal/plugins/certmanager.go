@@ -69,7 +69,7 @@ func (c *CertManager) Status() string {
 
 	ns, err := client.GetNameSpace(CertManagerNamespace, ctx)
 	if ns == "" || err != nil {
-		logger.Errorln("failed to get cert-manager namespace: %v", err)
+		logger.Debugf("failed to get cert-manager namespace: %v", err)
 		return StatusNotInstalled
 	}
 	return "cert-manager is running"
