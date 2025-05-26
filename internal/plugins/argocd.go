@@ -111,7 +111,7 @@ func (a *Argocd) Status() string {
 	defer cancel()
 	ns, err := c.GetNameSpace(ArgocdNamespace, ctx)
 	if ns == "" || err != nil {
-		logger.Errorln("failed to get argocd namespace: %v", err)
+		logger.Debugf("failed to get argocd namespace: %v", err)
 		return StatusNotInstalled
 	}
 	return "argocd is running"
