@@ -1,7 +1,6 @@
 package plugin
 
 import (
-	"fmt"
 	"github.com/mrgb7/playground/internal/plugins"
 	"github.com/mrgb7/playground/pkg/logger"
 	"github.com/mrgb7/playground/types"
