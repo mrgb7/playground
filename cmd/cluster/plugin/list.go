@@ -7,6 +7,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// getPluginStatusSilently gets plugin status without displaying errors
+func getPluginStatusSilently(plugin plugins.Plugin) string {
+	// Enable silent mode to suppress error logging
+	logger.SetSilentMode(true)
+	
+	// Get the status 
+	status := plugin.Status()
+	
+	// Restore normal logging
+	logger.SetSilentMode(false)
+	
+	return status
+}
+
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all available plugins",
@@ -15,9 +29,12 @@ var listCmd = &cobra.Command{
 		clusterName, _ := cmd.Flags().GetString("cluster-name")
 		if clusterName == "" {
 			logger.Infoln("Basic plugins:")
+			
 			for _, plugin := range plugins.List {
-				logger.Infoln("  %s: %s", plugin.GetName(), plugin.Status())
+				status := getPluginStatusSilently(plugin)
+				logger.Infoln("  %s: %s", plugin.GetName(), status)
 			}
+			
 			logger.Infoln("")
 			logger.Infoln("For cluster-specific plugins, specify --cluster-name")
 			return
@@ -40,8 +57,10 @@ var listCmd = &cobra.Command{
 		}
 
 		logger.Infoln("Available plugins for cluster '%s':", clusterName)
+		
 		for _, plugin := range pluginsList {
-			logger.Infoln("  %s: %s", plugin.GetName(), plugin.Status())
+			status := getPluginStatusSilently(plugin)
+			logger.Infoln("  %s: %s", plugin.GetName(), status)
 		}
 	},
 }

@@ -14,7 +14,15 @@ var (
 	errorColor   = color.New(color.FgRed)
 	debugColor   = color.New(color.FgCyan)
 	successColor = color.New(color.FgGreen, color.Bold)
+	
+	// Silent mode flag to suppress error output
+	silentMode = false
 )
+
+// SetSilentMode enables or disables silent mode for error logging
+func SetSilentMode(silent bool) {
+	silentMode = silent
+}
 
 // Info prints info message with format
 func Info(format string, args ...interface{}) {
@@ -46,9 +54,11 @@ func Warnln(format string, args ...interface{}) {
 	_, _ = warnColor.Printf(format+"\n", args...)
 }
 
-// Error prints error message with format
+// Error prints error message with format (suppressed in silent mode)
 func Error(format string, args ...interface{}) {
-	_, _ = errorColor.Printf(format, args...)
+	if !silentMode {
+		_, _ = errorColor.Printf(format, args...)
+	}
 }
 
 // Errorf is an alias for Error for consistency
@@ -56,14 +66,18 @@ func Errorf(format string, args ...interface{}) {
 	Error(format, args...)
 }
 
-// Errorln prints error message with newline
+// Errorln prints error message with newline (suppressed in silent mode)
 func Errorln(format string, args ...interface{}) {
-	_, _ = errorColor.Printf(format+"\n", args...)
+	if !silentMode {
+		_, _ = errorColor.Printf(format+"\n", args...)
+	}
 }
 
-// Debug prints debug message with format
+// Debug prints debug message with format (suppressed in silent mode)
 func Debug(format string, args ...interface{}) {
-	_, _ = debugColor.Printf(format, args...)
+	if !silentMode {
+		_, _ = debugColor.Printf(format, args...)
+	}
 }
 
 // Debugf is an alias for Debug for consistency
@@ -71,9 +85,11 @@ func Debugf(format string, args ...interface{}) {
 	Debug(format, args...)
 }
 
-// Debugln prints debug message with newline
+// Debugln prints debug message with newline (suppressed in silent mode)
 func Debugln(format string, args ...interface{}) {
-	_, _ = debugColor.Printf(format+"\n", args...)
+	if !silentMode {
+		_, _ = debugColor.Printf(format+"\n", args...)
+	}
 }
 
 // Success prints success message with format
