@@ -262,3 +262,8 @@ func (l *LoadBalancer) GetChartValues() map[string]interface{} {
 func (l *LoadBalancer) GetRepoName() string {
 	return repoName
 }
+
+// GetDependencies returns the list of plugins that load-balancer depends on
+func (l *LoadBalancer) GetDependencies() []string {
+	return []string{} // load-balancer has no dependencies
+}

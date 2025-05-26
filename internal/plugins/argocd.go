@@ -145,3 +145,8 @@ func (a *Argocd) GetChartValues() map[string]interface{} {
 func (a *Argocd) GetRepoName() string {
 	return ArgoRepoName
 }
+
+// GetDependencies returns the list of plugins that ArgoCD depends on
+func (a *Argocd) GetDependencies() []string {
+	return []string{} // ArgoCD has no dependencies
+}

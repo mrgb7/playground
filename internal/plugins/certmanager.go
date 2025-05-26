@@ -102,3 +102,8 @@ func (c *CertManager) GetReleaseName() string {
 func (c *CertManager) GetRepoName() string {
 	return CertManagerRepoName
 }
+
+// GetDependencies returns the list of plugins that cert-manager depends on
+func (c *CertManager) GetDependencies() []string {
+	return []string{} // cert-manager has no dependencies
+}

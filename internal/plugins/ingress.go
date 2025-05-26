@@ -51,10 +51,6 @@ func (i *Ingress) GetName() string {
 func (i *Ingress) Install(kubeConfig, clusterName string, ensure ...bool) error {
 	logger.Infoln("Installing ingress plugin for cluster: %s", clusterName)
 
-	if err := i.checkDependencies(); err != nil {
-		return fmt.Errorf("dependency check failed: %w", err)
-	}
-
 	if err := i.ensureNginxLoadBalancer(); err != nil {
 		return fmt.Errorf("failed to ensure nginx LoadBalancer: %w", err)
 	}
@@ -97,28 +93,6 @@ func (i *Ingress) Status() string {
 	}
 
 	return "Ingress is configured"
-}
-
-func (i *Ingress) checkDependencies() error {
-	logger.Infoln("Checking ingress dependencies...")
-
-	nginx := NewNginx(i.KubeConfig)
-	nginxStatus := nginx.Status()
-	if !strings.Contains(nginxStatus, StatusRunning) {
-		return fmt.Errorf("nginx plugin is required but not installed/running. Status: %s", nginxStatus)
-	}
-
-	lb, err := NewLoadBalancer(i.KubeConfig, "")
-	if err != nil {
-		return fmt.Errorf("failed to create loadbalancer client: %w", err)
-	}
-	lbStatus := lb.Status()
-	if !strings.Contains(lbStatus, StatusRunning) {
-		return fmt.Errorf("loadbalancer plugin is required but not installed/running. Status: %s", lbStatus)
-	}
-
-	logger.Successln("All dependencies satisfied")
-	return nil
 }
 
 func (i *Ingress) ensureNginxLoadBalancer() error {
@@ -420,4 +394,9 @@ func (i *Ingress) createNewArgoCDIngress(hostname string, isTLSAvailable bool) e
 		logger.Successln("Created ArgoCD ingress with host: argocd.%s.local", i.ClusterName)
 	}
 	return nil
+}
+
+// GetDependencies returns the list of plugins that ingress depends on
+func (i *Ingress) GetDependencies() []string {
+	return []string{"nginx-ingress", "load-balancer"} // ingress depends on nginx-ingress and load-balancer
 }

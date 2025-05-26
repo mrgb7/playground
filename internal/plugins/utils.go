@@ -2,6 +2,8 @@ package plugins
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/mrgb7/playground/internal/installer"
@@ -98,4 +100,101 @@ func NewInstaller(plugin Plugin, kubeConfig, clusterName string) (installer.Inst
 	}
 
 	return installer.NewHelmInstaller(kubeConfig)
+}
+
+// IsPluginInstalled checks if a plugin is installed based on its status
+func IsPluginInstalled(status string) bool {
+	statusLower := strings.ToLower(status)
+	return strings.Contains(statusLower, "running") || 
+		   strings.Contains(statusLower, "configured") ||
+		   strings.Contains(statusLower, "ready")
+}
+
+// GetInstalledPlugins returns a list of currently installed plugin names
+func GetInstalledPlugins(kubeConfig string) []string {
+	installedPlugins := make([]string, 0)
+	
+	// Get all available plugins
+	plugins, err := CreatePluginsList(kubeConfig, "", "")
+	if err != nil {
+		logger.Warnln("Failed to create plugins list: %v", err)
+		return installedPlugins
+	}
+	
+	// Check status of each plugin
+	for _, plugin := range plugins {
+		status := plugin.Status()
+		// Consider plugin installed if status contains "running" or specific success indicators
+		if IsPluginInstalled(status) {
+			installedPlugins = append(installedPlugins, plugin.GetName())
+		}
+	}
+	
+	return installedPlugins
+}
+
+// CreateDependencyPluginsList creates a list of DependencyPlugin from regular plugins
+func CreateDependencyPluginsList(kubeConfig, masterClusterIP, clusterName string) ([]DependencyPlugin, error) {
+	plugins, err := CreatePluginsList(kubeConfig, masterClusterIP, clusterName)
+	if err != nil {
+		return nil, err
+	}
+	
+	dependencyPlugins := make([]DependencyPlugin, 0, len(plugins))
+	for _, plugin := range plugins {
+		// All our plugins should implement DependencyPlugin interface
+		if depPlugin, ok := plugin.(DependencyPlugin); ok {
+			dependencyPlugins = append(dependencyPlugins, depPlugin)
+		} else {
+			logger.Warnln("Plugin %s does not implement DependencyPlugin interface", plugin.GetName())
+		}
+	}
+	
+	return dependencyPlugins, nil
+}
+
+// ValidateAndGetInstallOrder validates dependencies and returns the correct install order
+func ValidateAndGetInstallOrder(targetPlugin string, kubeConfig, masterClusterIP, clusterName string) ([]string, error) {
+	// Get all dependency plugins
+	dependencyPlugins, err := CreateDependencyPluginsList(kubeConfig, masterClusterIP, clusterName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create dependency plugins list: %w", err)
+	}
+	
+	// Create validator
+	validator := NewDependencyValidator(dependencyPlugins)
+	
+	// Get currently installed plugins
+	installedPlugins := GetInstalledPlugins(kubeConfig)
+	
+	// Validate installation order
+	installOrder, err := validator.ValidateInstallation([]string{targetPlugin}, installedPlugins)
+	if err != nil {
+		return nil, fmt.Errorf("dependency validation failed: %w", err)
+	}
+	
+	return installOrder, nil
+}
+
+// ValidateAndGetUninstallOrder validates dependencies and returns the correct uninstall order
+func ValidateAndGetUninstallOrder(targetPlugin string, kubeConfig, masterClusterIP, clusterName string) ([]string, error) {
+	// Get all dependency plugins
+	dependencyPlugins, err := CreateDependencyPluginsList(kubeConfig, masterClusterIP, clusterName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create dependency plugins list: %w", err)
+	}
+	
+	// Create validator
+	validator := NewDependencyValidator(dependencyPlugins)
+	
+	// Get currently installed plugins
+	installedPlugins := GetInstalledPlugins(kubeConfig)
+	
+	// Validate uninstallation order
+	uninstallOrder, err := validator.ValidateUninstallation([]string{targetPlugin}, installedPlugins)
+	if err != nil {
+		return nil, fmt.Errorf("dependency validation failed: %w", err)
+	}
+	
+	return uninstallOrder, nil
 }
