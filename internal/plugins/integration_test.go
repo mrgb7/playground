@@ -71,7 +71,7 @@ func TestDependencyValidationIntegration(t *testing.T) {
 	}
 
 	// Test 3: Uninstalling load-balancer when nginx-ingress and ingress depend on it
-	uninstallOrder, err := validator.ValidateUninstallation([]string{"load-balancer"}, 
+	uninstallOrder, err := validator.ValidateUninstallation([]string{"load-balancer"},
 		[]string{"load-balancer", "nginx-ingress", "ingress"})
 	if err != nil {
 		t.Fatalf("Failed to validate load-balancer uninstallation: %v", err)
@@ -80,20 +80,20 @@ func TestDependencyValidationIntegration(t *testing.T) {
 	// Should uninstall in reverse dependency order: ingress, nginx-ingress, load-balancer
 	expectedUninstallOrder := []string{"ingress", "nginx-ingress", "load-balancer"}
 	if len(uninstallOrder) != len(expectedUninstallOrder) {
-		t.Errorf("Unexpected uninstall order length: got %d, expected %d", 
+		t.Errorf("Unexpected uninstall order length: got %d, expected %d",
 			len(uninstallOrder), len(expectedUninstallOrder))
 	}
 
 	for i, expected := range expectedUninstallOrder {
 		if i >= len(uninstallOrder) || uninstallOrder[i] != expected {
-			t.Errorf("Invalid uninstall order at position %d: got %v, expected %v", 
+			t.Errorf("Invalid uninstall order at position %d: got %v, expected %v",
 				i, uninstallOrder, expectedUninstallOrder)
 			break
 		}
 	}
 
 	// Test 4: Trying to uninstall cert-manager when TLS depends on it should fail
-	_, err = validator.ValidateUninstallation([]string{"cert-manager"}, 
+	_, err = validator.ValidateUninstallation([]string{"cert-manager"},
 		[]string{"cert-manager", "tls"})
 	if err != nil {
 		t.Fatalf("Failed to validate cert-manager uninstallation: %v", err)
@@ -130,7 +130,7 @@ func TestPartialInstallationScenario(t *testing.T) {
 	validator := NewDependencyValidator(dependencyPlugins)
 
 	// Scenario: load-balancer is already installed, now installing ingress
-	installOrder, err := validator.ValidateInstallation([]string{"ingress"}, 
+	installOrder, err := validator.ValidateInstallation([]string{"ingress"},
 		[]string{"load-balancer"})
 	if err != nil {
 		t.Fatalf("Failed to validate partial installation: %v", err)
@@ -139,13 +139,13 @@ func TestPartialInstallationScenario(t *testing.T) {
 	// Should only install nginx-ingress and ingress (load-balancer already installed)
 	expectedOrder := []string{"nginx-ingress", "ingress"}
 	if len(installOrder) != len(expectedOrder) {
-		t.Errorf("Unexpected install order length: got %d, expected %d", 
+		t.Errorf("Unexpected install order length: got %d, expected %d",
 			len(installOrder), len(expectedOrder))
 	}
 
 	for i, expected := range expectedOrder {
 		if i >= len(installOrder) || installOrder[i] != expected {
-			t.Errorf("Invalid install order at position %d: got %v, expected %v", 
+			t.Errorf("Invalid install order at position %d: got %v, expected %v",
 				i, installOrder, expectedOrder)
 			break
 		}
@@ -172,15 +172,15 @@ func TestMultiplePluginInstallationIntegration(t *testing.T) {
 
 	// Should install all dependencies
 	expectedPlugins := map[string]bool{
-		"cert-manager":   true,
-		"load-balancer":  true,
-		"nginx-ingress":  true,
-		"ingress":        true,
-		"tls":            true,
+		"cert-manager":  true,
+		"load-balancer": true,
+		"nginx-ingress": true,
+		"ingress":       true,
+		"tls":           true,
 	}
 
 	if len(installOrder) != len(expectedPlugins) {
-		t.Errorf("Unexpected number of plugins to install: got %d, expected %d", 
+		t.Errorf("Unexpected number of plugins to install: got %d, expected %d",
 			len(installOrder), len(expectedPlugins))
 	}
 
@@ -204,4 +204,4 @@ func TestMultiplePluginInstallationIntegration(t *testing.T) {
 	if cmIndex >= tlsIndex {
 		t.Errorf("Invalid dependency order for TLS chain: %v", installOrder)
 	}
-} 
+}

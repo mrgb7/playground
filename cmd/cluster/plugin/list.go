@@ -22,12 +22,12 @@ var listCmd = &cobra.Command{
 		clusterName, _ := cmd.Flags().GetString("cluster-name")
 		if clusterName == "" {
 			logger.Infoln("Basic plugins:")
-			
+
 			for _, plugin := range plugins.List {
 				status := getPluginStatusSilently(plugin)
 				logger.Infoln("  %s: %s", plugin.GetName(), status)
 			}
-			
+
 			logger.Infoln("")
 			logger.Infoln("For cluster-specific plugins, specify --cluster-name")
 			return
@@ -50,7 +50,7 @@ var listCmd = &cobra.Command{
 		}
 
 		logger.Infoln("Available plugins for cluster '%s':", clusterName)
-		
+
 		for _, plugin := range pluginsList {
 			status := getPluginStatusSilently(plugin)
 			logger.Infoln("  %s: %s", plugin.GetName(), status)

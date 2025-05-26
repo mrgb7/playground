@@ -31,7 +31,7 @@ func NewDependencyGraph() *DependencyGraph {
 func (dg *DependencyGraph) AddPlugin(plugin DependencyPlugin) {
 	name := plugin.GetName()
 	dependencies := plugin.GetDependencies()
-	
+
 	if dg.nodes[name] == nil {
 		dg.nodes[name] = &GraphNode{
 			Plugin:       plugin,
@@ -42,19 +42,18 @@ func (dg *DependencyGraph) AddPlugin(plugin DependencyPlugin) {
 		dg.nodes[name].Plugin = plugin
 		dg.nodes[name].Dependencies = make([]string, len(dependencies))
 	}
-	
+
 	copy(dg.nodes[name].Dependencies, dependencies)
-	
+
 	for _, dep := range dependencies {
 		if dg.nodes[dep] == nil {
 			dg.nodes[dep] = &GraphNode{
-				Plugin:       nil, 
+				Plugin:       nil,
 				Dependencies: make([]string, 0),
 				Dependents:   make([]string, 0),
 			}
 		}
-		
-		
+
 		found := false
 		for _, dependent := range dg.nodes[dep].Dependents {
 			if dependent == name {
@@ -72,19 +71,19 @@ func (dg *DependencyGraph) GetInstallOrder(targetPlugins []string) ([]string, er
 	if len(targetPlugins) == 0 {
 		return []string{}, nil
 	}
-	
+
 	required := make(map[string]bool)
 	for _, plugin := range targetPlugins {
 		if err := dg.collectDependencies(plugin, required); err != nil {
 			return nil, err
 		}
 	}
-	
+
 	plugins := make([]string, 0, len(required))
 	for plugin := range required {
 		plugins = append(plugins, plugin)
 	}
-	
+
 	return dg.topologicalSort(plugins)
 }
 
@@ -92,28 +91,28 @@ func (dg *DependencyGraph) GetUninstallOrder(targetPlugins []string) ([]string, 
 	if len(targetPlugins) == 0 {
 		return []string{}, nil
 	}
-	
+
 	toUninstall := make(map[string]bool)
 	for _, plugin := range targetPlugins {
 		if err := dg.collectDependents(plugin, toUninstall); err != nil {
 			return nil, err
 		}
 	}
-	
+
 	plugins := make([]string, 0, len(toUninstall))
 	for plugin := range toUninstall {
 		plugins = append(plugins, plugin)
 	}
-	
+
 	order, err := dg.topologicalSort(plugins)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	for i, j := 0, len(order)-1; i < j; i, j = i+1, j-1 {
 		order[i], order[j] = order[j], order[i]
 	}
-	
+
 	return order, nil
 }
 
@@ -122,24 +121,24 @@ func (dg *DependencyGraph) ValidateInstall(pluginName string, installedPlugins [
 	if node == nil || node.Plugin == nil {
 		return fmt.Errorf("plugin '%s' not found in dependency graph", pluginName)
 	}
-	
+
 	installedSet := make(map[string]bool)
 	for _, p := range installedPlugins {
 		installedSet[p] = true
 	}
-	
+
 	missingDeps := make([]string, 0)
 	for _, dep := range node.Dependencies {
 		if !installedSet[dep] {
 			missingDeps = append(missingDeps, dep)
 		}
 	}
-	
+
 	if len(missingDeps) > 0 {
-		return fmt.Errorf("plugin '%s' has unmet dependencies: %s", 
+		return fmt.Errorf("plugin '%s' has unmet dependencies: %s",
 			pluginName, strings.Join(missingDeps, ", "))
 	}
-	
+
 	return nil
 }
 
@@ -148,24 +147,24 @@ func (dg *DependencyGraph) ValidateUninstall(pluginName string, installedPlugins
 	for _, p := range installedPlugins {
 		installedSet[p] = true
 	}
-	
+
 	node := dg.nodes[pluginName]
 	if node == nil {
 		return nil
 	}
-	
+
 	blockers := make([]string, 0)
 	for _, dependent := range node.Dependents {
 		if installedSet[dependent] {
 			blockers = append(blockers, dependent)
 		}
 	}
-	
+
 	if len(blockers) > 0 {
-		return fmt.Errorf("cannot uninstall '%s': the following installed plugins depend on it: %s", 
+		return fmt.Errorf("cannot uninstall '%s': the following installed plugins depend on it: %s",
 			pluginName, strings.Join(blockers, ", "))
 	}
-	
+
 	return nil
 }
 
@@ -188,7 +187,7 @@ func (dg *DependencyGraph) GetDependents(pluginName string) []string {
 func (dg *DependencyGraph) HasCycles() bool {
 	visited := make(map[string]bool)
 	recStack := make(map[string]bool)
-	
+
 	for pluginName := range dg.nodes {
 		if !visited[pluginName] {
 			if dg.hasCyclesDFS(pluginName, visited, recStack) {
@@ -196,7 +195,7 @@ func (dg *DependencyGraph) HasCycles() bool {
 			}
 		}
 	}
-	
+
 	return false
 }
 
@@ -208,24 +207,24 @@ func (dg *DependencyGraph) collectDependenciesWithStack(pluginName string, colle
 	if collected[pluginName] {
 		return nil // Already processed
 	}
-	
+
 	if stack[pluginName] {
 		return fmt.Errorf("circular dependency detected involving plugin '%s'", pluginName)
 	}
-	
+
 	node := dg.nodes[pluginName]
 	if node == nil || node.Plugin == nil {
 		return fmt.Errorf("plugin '%s' not found", pluginName)
 	}
-	
+
 	stack[pluginName] = true
-	
+
 	for _, dep := range node.Dependencies {
 		if err := dg.collectDependenciesWithStack(dep, collected, stack); err != nil {
 			return err
 		}
 	}
-	
+
 	stack[pluginName] = false
 	collected[pluginName] = true
 	return nil
@@ -236,20 +235,20 @@ func (dg *DependencyGraph) collectDependents(pluginName string, collected map[st
 	if collected[pluginName] {
 		return nil // Already processed
 	}
-	
+
 	collected[pluginName] = true
-	
+
 	node := dg.nodes[pluginName]
 	if node == nil {
 		return nil // Plugin not in graph
 	}
-	
+
 	for _, dependent := range node.Dependents {
 		if err := dg.collectDependents(dependent, collected); err != nil {
 			return err
 		}
 	}
-	
+
 	return nil
 }
 
@@ -259,7 +258,7 @@ func (dg *DependencyGraph) topologicalSort(plugins []string) ([]string, error) {
 	for _, plugin := range plugins {
 		inDegree[plugin] = 0
 	}
-	
+
 	for _, plugin := range plugins {
 		node := dg.nodes[plugin]
 		if node != nil {
@@ -270,21 +269,21 @@ func (dg *DependencyGraph) topologicalSort(plugins []string) ([]string, error) {
 			}
 		}
 	}
-	
+
 	queue := make([]string, 0)
 	for plugin, degree := range inDegree {
 		if degree == 0 {
 			queue = append(queue, plugin)
 		}
 	}
-	
+
 	result := make([]string, 0, len(plugins))
-	
+
 	for len(queue) > 0 {
 		current := queue[0]
 		queue = queue[1:]
 		result = append(result, current)
-		
+
 		for _, dependent := range plugins {
 			node := dg.nodes[dependent]
 			if node != nil {
@@ -299,18 +298,18 @@ func (dg *DependencyGraph) topologicalSort(plugins []string) ([]string, error) {
 			}
 		}
 	}
-	
+
 	if len(result) != len(plugins) {
 		return nil, fmt.Errorf("circular dependency detected")
 	}
-	
+
 	return result, nil
 }
 
 func (dg *DependencyGraph) hasCyclesDFS(plugin string, visited, recStack map[string]bool) bool {
 	visited[plugin] = true
 	recStack[plugin] = true
-	
+
 	node := dg.nodes[plugin]
 	if node != nil {
 		for _, dep := range node.Dependencies {
@@ -323,7 +322,7 @@ func (dg *DependencyGraph) hasCyclesDFS(plugin string, visited, recStack map[str
 			}
 		}
 	}
-	
+
 	recStack[plugin] = false
 	return false
 }
@@ -334,15 +333,15 @@ type DependencyValidator struct {
 
 func NewDependencyValidator(plugins []DependencyPlugin) *DependencyValidator {
 	graph := NewDependencyGraph()
-	
+
 	for _, plugin := range plugins {
 		graph.AddPlugin(plugin)
 	}
-	
+
 	if graph.HasCycles() {
 		logger.Error("Circular dependency detected in plugin graph")
 	}
-	
+
 	return &DependencyValidator{
 		graph: graph,
 	}
@@ -350,17 +349,17 @@ func NewDependencyValidator(plugins []DependencyPlugin) *DependencyValidator {
 
 func (dv *DependencyValidator) ValidateInstallation(targetPlugins []string, installedPlugins []string) ([]string, error) {
 	logger.Infoln("Validating plugin installation dependencies...")
-	
+
 	installOrder, err := dv.graph.GetInstallOrder(targetPlugins)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine install order: %w", err)
 	}
-	
+
 	installedSet := make(map[string]bool)
 	for _, p := range installedPlugins {
 		installedSet[p] = true
 	}
-	
+
 	// Filter out already installed plugins and validate remaining ones
 	needsInstallation := make([]string, 0)
 	for _, plugin := range installOrder {
@@ -374,24 +373,24 @@ func (dv *DependencyValidator) ValidateInstallation(targetPlugins []string, inst
 			installedSet[plugin] = true
 		}
 	}
-	
+
 	logger.Successln("Dependency validation passed")
 	return needsInstallation, nil
 }
 
 func (dv *DependencyValidator) ValidateUninstallation(targetPlugins []string, installedPlugins []string) ([]string, error) {
 	logger.Infoln("Validating plugin uninstallation dependencies...")
-	
+
 	uninstallOrder, err := dv.graph.GetUninstallOrder(targetPlugins)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine uninstall order: %w", err)
 	}
-	
+
 	installedSet := make(map[string]bool)
 	for _, p := range installedPlugins {
 		installedSet[p] = true
 	}
-	
+
 	needsUninstallation := make([]string, 0)
 	for _, plugin := range uninstallOrder {
 		if installedSet[plugin] {
@@ -410,11 +409,11 @@ func (dv *DependencyValidator) ValidateUninstallation(targetPlugins []string, in
 			installedSet[plugin] = false
 		}
 	}
-	
+
 	logger.Successln("Dependency validation passed")
 	return needsUninstallation, nil
 }
 
 func (dv *DependencyValidator) GetDependencyInfo(pluginName string) (dependencies []string, dependents []string) {
 	return dv.graph.GetDependencies(pluginName), dv.graph.GetDependents(pluginName)
-} 
+}
