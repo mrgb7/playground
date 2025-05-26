@@ -105,22 +105,22 @@ func NewInstaller(plugin Plugin, kubeConfig, clusterName string) (installer.Inst
 // IsPluginInstalled checks if a plugin is installed based on its status
 func IsPluginInstalled(status string) bool {
 	statusLower := strings.ToLower(status)
-	return strings.Contains(statusLower, "running") || 
-		   strings.Contains(statusLower, "configured") ||
-		   strings.Contains(statusLower, "ready")
+	return strings.Contains(statusLower, "running") ||
+		strings.Contains(statusLower, "configured") ||
+		strings.Contains(statusLower, "ready")
 }
 
 // GetInstalledPlugins returns a list of currently installed plugin names
 func GetInstalledPlugins(kubeConfig string) []string {
 	installedPlugins := make([]string, 0)
-	
+
 	// Get all available plugins
 	plugins, err := CreatePluginsList(kubeConfig, "", "")
 	if err != nil {
 		logger.Warnln("Failed to create plugins list: %v", err)
 		return installedPlugins
 	}
-	
+
 	// Check status of each plugin
 	for _, plugin := range plugins {
 		status := plugin.Status()
@@ -129,7 +129,7 @@ func GetInstalledPlugins(kubeConfig string) []string {
 			installedPlugins = append(installedPlugins, plugin.GetName())
 		}
 	}
-	
+
 	return installedPlugins
 }
 
@@ -139,7 +139,7 @@ func CreateDependencyPluginsList(kubeConfig, masterClusterIP, clusterName string
 	if err != nil {
 		return nil, err
 	}
-	
+
 	dependencyPlugins := make([]DependencyPlugin, 0, len(plugins))
 	for _, plugin := range plugins {
 		// All our plugins should implement DependencyPlugin interface
@@ -149,7 +149,7 @@ func CreateDependencyPluginsList(kubeConfig, masterClusterIP, clusterName string
 			logger.Warnln("Plugin %s does not implement DependencyPlugin interface", plugin.GetName())
 		}
 	}
-	
+
 	return dependencyPlugins, nil
 }
 
@@ -160,19 +160,19 @@ func ValidateAndGetInstallOrder(targetPlugin string, kubeConfig, masterClusterIP
 	if err != nil {
 		return nil, fmt.Errorf("failed to create dependency plugins list: %w", err)
 	}
-	
+
 	// Create validator
 	validator := NewDependencyValidator(dependencyPlugins)
-	
+
 	// Get currently installed plugins
 	installedPlugins := GetInstalledPlugins(kubeConfig)
-	
+
 	// Validate installation order
 	installOrder, err := validator.ValidateInstallation([]string{targetPlugin}, installedPlugins)
 	if err != nil {
 		return nil, fmt.Errorf("dependency validation failed: %w", err)
 	}
-	
+
 	return installOrder, nil
 }
 
@@ -183,18 +183,18 @@ func ValidateAndGetUninstallOrder(targetPlugin string, kubeConfig, masterCluster
 	if err != nil {
 		return nil, fmt.Errorf("failed to create dependency plugins list: %w", err)
 	}
-	
+
 	// Create validator
 	validator := NewDependencyValidator(dependencyPlugins)
-	
+
 	// Get currently installed plugins
 	installedPlugins := GetInstalledPlugins(kubeConfig)
-	
+
 	// Validate uninstallation order
 	uninstallOrder, err := validator.ValidateUninstallation([]string{targetPlugin}, installedPlugins)
 	if err != nil {
 		return nil, fmt.Errorf("dependency validation failed: %w", err)
 	}
-	
+
 	return uninstallOrder, nil
 }

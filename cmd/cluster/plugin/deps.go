@@ -32,14 +32,14 @@ var depsCmd = &cobra.Command{
 
 		if pName != "" {
 			dependencies, dependents := validator.GetDependencyInfo(pName)
-			
+
 			logger.Infoln("Plugin: %s", pName)
 			if len(dependencies) > 0 {
 				logger.Infoln("  Dependencies: %v", dependencies)
 			} else {
 				logger.Infoln("  Dependencies: none")
 			}
-			
+
 			if len(dependents) > 0 {
 				logger.Infoln("  Dependents: %v", dependents)
 			} else {
@@ -48,11 +48,11 @@ var depsCmd = &cobra.Command{
 		} else {
 			logger.Infoln("Plugin Dependency Information:")
 			logger.Infoln("=============================")
-			
+
 			for _, plugin := range dependencyPlugins {
 				name := plugin.GetName()
 				dependencies, dependents := validator.GetDependencyInfo(name)
-				
+
 				logger.Infoln("")
 				logger.Infoln("Plugin: %s", name)
 				if len(dependencies) > 0 {
@@ -60,7 +60,7 @@ var depsCmd = &cobra.Command{
 				} else {
 					logger.Infoln("  Dependencies: none")
 				}
-				
+
 				if len(dependents) > 0 {
 					logger.Infoln("  Dependents: %v", dependents)
 				} else {
@@ -79,4 +79,4 @@ func init() {
 		logger.Errorln("Failed to mark cluster flag as required: %v", err)
 	}
 	PluginCmd.AddCommand(depsCmd)
-} 
+}

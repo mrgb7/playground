@@ -1,11 +1,11 @@
 package plugin
 
 import (
+	"fmt"
 	"github.com/mrgb7/playground/internal/plugins"
 	"github.com/mrgb7/playground/pkg/logger"
 	"github.com/mrgb7/playground/types"
 	"github.com/spf13/cobra"
-	"fmt"
 )
 
 var removeCmd = &cobra.Command{

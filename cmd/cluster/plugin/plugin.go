@@ -13,9 +13,7 @@ var PluginCmd = &cobra.Command{
 	Long:  `Manage plugins for the cluster`,
 }
 
-
 type pluginOperation func(plugin plugins.Plugin, kubeConfig, clusterName string) error
-
 
 func executePluginOperation(pluginName, clusterName string, operation pluginOperation,
 	successMsg, errorMsg string) error {

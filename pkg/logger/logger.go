@@ -14,7 +14,7 @@ var (
 	errorColor   = color.New(color.FgRed)
 	debugColor   = color.New(color.FgCyan)
 	successColor = color.New(color.FgGreen, color.Bold)
-	
+
 	// Silent mode flag to suppress error output
 	silentMode = false
 )
