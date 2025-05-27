@@ -77,7 +77,7 @@ func (l *LoadBalancer) Status() string {
 	defer cancel()
 	ns, err := l.k8sClient.GetNameSpace(namespace, ctx)
 	if ns == "" || err != nil {
-		logger.Debugf("failed to get metallb namespace: %v", err)
+		logger.Errorln("failed to get metallb namespace: %v", err)
 		return StatusNotInstalled
 	}
 
@@ -261,9 +261,4 @@ func (l *LoadBalancer) GetChartValues() map[string]interface{} {
 
 func (l *LoadBalancer) GetRepoName() string {
 	return repoName
-}
-
-// GetDependencies returns the list of plugins that load-balancer depends on
-func (l *LoadBalancer) GetDependencies() []string {
-	return []string{} // load-balancer has no dependencies
 }

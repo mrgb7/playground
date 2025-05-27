@@ -2,6 +2,8 @@ package plugins
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/mrgb7/playground/internal/k8s"
@@ -34,6 +36,11 @@ func (n *Nginx) GetName() string {
 }
 
 func (n *Nginx) Install(kubeConfig, clusterName string, ensure ...bool) error {
+	// Check dependencies before installation
+	if err := n.checkDependencies(kubeConfig); err != nil {
+		return fmt.Errorf("dependency check failed: %w", err)
+	}
+
 	return n.UnifiedInstall(kubeConfig, clusterName, ensure...)
 }
 
@@ -62,6 +69,24 @@ func (n *Nginx) Status() string {
 		return StatusNotInstalled
 	}
 	return n.GetName() + " is " + StatusRunning
+}
+
+func (n *Nginx) checkDependencies(kubeConfig string) error {
+	logger.Infoln("Checking nginx-ingress dependencies...")
+
+	// Check for load-balancer dependency
+	lb, err := NewLoadBalancer(kubeConfig, "")
+	if err != nil {
+		return fmt.Errorf("failed to create loadbalancer client: %w", err)
+	}
+
+	lbStatus := lb.Status()
+	if !strings.Contains(lbStatus, StatusRunning) {
+		return fmt.Errorf("load-balancer plugin is required but not installed/running. Status: %s", lbStatus)
+	}
+
+	logger.Successln("All dependencies satisfied")
+	return nil
 }
 
 func (n *Nginx) GetNamespace() string {
@@ -111,9 +136,4 @@ func (n *Nginx) GetChartValues() map[string]interface{} {
 			"enabled": true,
 		},
 	}
-}
-
-// GetDependencies returns the list of plugins that nginx-ingress depends on
-func (n *Nginx) GetDependencies() []string {
-	return []string{"load-balancer"} // nginx-ingress depends on load-balancer
 }
