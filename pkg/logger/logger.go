@@ -14,19 +14,11 @@ var (
 	errorColor   = color.New(color.FgRed)
 	debugColor   = color.New(color.FgCyan)
 	successColor = color.New(color.FgGreen, color.Bold)
-
-	// Silent mode flag to suppress error output
-	silentMode = false
 )
-
-// SetSilentMode enables or disables silent mode for error logging
-func SetSilentMode(silent bool) {
-	silentMode = silent
-}
 
 // Info prints info message with format
 func Info(format string, args ...interface{}) {
-	_, _ = infoColor.Printf(format+"\n", args...)
+	_, _ = infoColor.Printf(format, args...)
 }
 
 // Infof is an alias for Info for consistency
@@ -41,7 +33,7 @@ func Infoln(format string, args ...interface{}) {
 
 // Warn prints warning message with format
 func Warn(format string, args ...interface{}) {
-	_, _ = warnColor.Printf(format+"\n", args...)
+	_, _ = warnColor.Printf(format, args...)
 }
 
 // Warnf is an alias for Warn for consistency
@@ -54,11 +46,9 @@ func Warnln(format string, args ...interface{}) {
 	_, _ = warnColor.Printf(format+"\n", args...)
 }
 
-// Error prints error message with format (suppressed in silent mode)
+// Error prints error message with format
 func Error(format string, args ...interface{}) {
-	if !silentMode {
-		_, _ = errorColor.Printf(format+"\n", args...)
-	}
+	_, _ = errorColor.Printf(format, args...)
 }
 
 // Errorf is an alias for Error for consistency
@@ -66,18 +56,14 @@ func Errorf(format string, args ...interface{}) {
 	Error(format, args...)
 }
 
-// Errorln prints error message with newline (suppressed in silent mode)
+// Errorln prints error message with newline
 func Errorln(format string, args ...interface{}) {
-	if !silentMode {
-		_, _ = errorColor.Printf(format+"\n", args...)
-	}
+	_, _ = errorColor.Printf(format+"\n", args...)
 }
 
-// Debug prints debug message with format (suppressed in silent mode)
+// Debug prints debug message with format
 func Debug(format string, args ...interface{}) {
-	if !silentMode {
-		_, _ = debugColor.Printf(format+"\n", args...)
-	}
+	_, _ = debugColor.Printf(format, args...)
 }
 
 // Debugf is an alias for Debug for consistency
@@ -85,16 +71,14 @@ func Debugf(format string, args ...interface{}) {
 	Debug(format, args...)
 }
 
-// Debugln prints debug message with newline (suppressed in silent mode)
+// Debugln prints debug message with newline
 func Debugln(format string, args ...interface{}) {
-	if !silentMode {
-		_, _ = debugColor.Printf(format+"\n", args...)
-	}
+	_, _ = debugColor.Printf(format+"\n", args...)
 }
 
 // Success prints success message with format
 func Success(format string, args ...interface{}) {
-	_, _ = successColor.Printf(format+"\n", args...)
+	_, _ = successColor.Printf(format, args...)
 }
 
 // Successf is an alias for Success for consistency
@@ -115,7 +99,7 @@ func Fatal(format string, args ...interface{}) {
 
 // Print prints plain message with format
 func Print(format string, args ...interface{}) {
-	fmt.Printf(format+"\n", args...)
+	fmt.Printf(format, args...)
 }
 
 // Println prints plain message with newline

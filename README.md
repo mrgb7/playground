@@ -130,12 +130,6 @@ playground cluster plugin remove --name argocd --cluster my-cluster
 
 # List available plugins
 playground cluster plugin list
-
-# Show plugin dependency information
-playground cluster plugin deps --cluster my-cluster
-
-# Show dependencies for a specific plugin
-playground cluster plugin deps --cluster my-cluster --name ingress
 ```
 
 #### Ingress Plugin

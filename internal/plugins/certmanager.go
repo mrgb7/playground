@@ -69,7 +69,7 @@ func (c *CertManager) Status() string {
 
 	ns, err := client.GetNameSpace(CertManagerNamespace, ctx)
 	if ns == "" || err != nil {
-		logger.Debugf("failed to get cert-manager namespace: %v", err)
+		logger.Errorln("failed to get cert-manager namespace: %v", err)
 		return StatusNotInstalled
 	}
 	return "cert-manager is running"
@@ -101,9 +101,4 @@ func (c *CertManager) GetReleaseName() string {
 
 func (c *CertManager) GetRepoName() string {
 	return CertManagerRepoName
-}
-
-// GetDependencies returns the list of plugins that cert-manager depends on
-func (c *CertManager) GetDependencies() []string {
-	return []string{} // cert-manager has no dependencies
 }

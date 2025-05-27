@@ -111,7 +111,7 @@ func (a *Argocd) Status() string {
 	defer cancel()
 	ns, err := c.GetNameSpace(ArgocdNamespace, ctx)
 	if ns == "" || err != nil {
-		logger.Debugf("failed to get argocd namespace: %v", err)
+		logger.Errorln("failed to get argocd namespace: %v", err)
 		return StatusNotInstalled
 	}
 	return "argocd is running"
@@ -144,9 +144,4 @@ func (a *Argocd) GetChartValues() map[string]interface{} {
 
 func (a *Argocd) GetRepoName() string {
 	return ArgoRepoName
-}
-
-// GetDependencies returns the list of plugins that ArgoCD depends on
-func (a *Argocd) GetDependencies() []string {
-	return []string{} // ArgoCD has no dependencies
 }

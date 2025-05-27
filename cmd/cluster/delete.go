@@ -9,7 +9,8 @@ import (
 )
 
 var (
-	deleteCmd = &cobra.Command{
+	cDeleteForce bool
+	deleteCmd    = &cobra.Command{
 		Use:   "delete",
 		Short: "Delete an existing cluster",
 		Long:  `Delete an existing cluster by specifying its name`,
@@ -42,13 +43,20 @@ var (
 			}
 			wg.Wait()
 
-			logger.Infoln("Purging deleted instances...")
-			if err := client.PurgeNodes(); err != nil {
-				logger.Errorln("Failed to purge deleted instances: %v", err)
-				return
+			if cDeleteForce {
+				logger.Infoln("Purging deleted instances...")
+				if err := client.PurgeNodes(); err != nil {
+					logger.Errorln("Failed to purge deleted instances: %v", err)
+					return
+				}
+
 			}
 
 			logger.Successln("Successfully deleted cluster '%s'", clusterToDelete)
 		},
 	}
 )
+
+func init() {
+	deleteCmd.Flags().BoolVarP(&cDeleteForce, "force", "f", false, "Force delete cluster resources")
+}
