@@ -1,9 +1,14 @@
 package plugin
 
 import (
+	"context"
+
 	"github.com/mrgb7/playground/internal/plugins"
 	"github.com/mrgb7/playground/pkg/logger"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 var removeCmd = &cobra.Command{
@@ -12,12 +17,35 @@ var removeCmd = &cobra.Command{
 	Long:  `Remove plugin from the cluster`,
 	Run: func(cmd *cobra.Command, args []string) {
 		uninstallOperation := func(plugin plugins.Plugin, kubeConfig, clusterName string) error {
-			return plugin.Uninstall(kubeConfig, clusterName)
+			if err := plugin.Uninstall(kubeConfig, clusterName); err != nil {
+				return err
+			}
+
+			namespace := pName
+			if err := deleteNamespace(kubeConfig, namespace); err != nil {
+				logger.Warnf("Failed to delete namespace %s: %v", namespace, err)
+			}
+			return nil
 		}
 
 		_ = executePluginOperation(pName, cName, uninstallOperation,
 			"Successfully uninstalled %s", "Error uninstalling plugin")
 	},
+}
+
+func deleteNamespace(kubeConfigData, namespace string) error {
+	config, err := clientcmd.RESTConfigFromKubeConfig([]byte(kubeConfigData))
+	if err != nil {
+		logger.Errorf("Failed to parse kubeconfig data: %v", err)
+	}
+
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		logger.Errorf("Failed to create kubernetes client: %v", err)
+
+	}
+
+	return clientset.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
 }
 
 func init() {
