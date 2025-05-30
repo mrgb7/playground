@@ -154,6 +154,13 @@ func (a *ArgoInstaller) UnInstall(options *InstallOptions) error {
 		return fmt.Errorf("failed to delete ArgoCD application: %w", err)
 	}
 
+	if options.Plugin != nil && options.Plugin.OwnsNamespace() {
+		namespaceManager := NewNamespaceManager(a.KubeConfig)
+		if err := namespaceManager.DeleteNamespace(options.Namespace); err != nil {
+			logger.Warnf("Warning: Failed to cleanup namespace: %v", err)
+		}
+	}
+
 	logger.Infoln("Successfully deleted ArgoCD application: %s", options.ApplicationName)
 	return nil
 }
@@ -315,6 +322,7 @@ func (a *ArgoInstaller) deleteApplication(options *InstallOptions) error {
 		return fmt.Errorf("failed to create delete request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+a.authToken)
+	req.Header.Set("Content-Type", "application/json")
 
 	q := req.URL.Query()
 	q.Add("cascade", "true")

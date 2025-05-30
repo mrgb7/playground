@@ -1,5 +1,16 @@
 package installer
 
+type PluginInterface interface {
+	GetName() string
+	GetNamespace() string
+	GetVersion() string
+	GetChartName() string
+	GetRepository() string
+	GetRepoName() string
+	GetChartValues() map[string]interface{}
+	OwnsNamespace() bool
+}
+
 type Installer interface {
 	Install(options *InstallOptions) error
 	UnInstall(options *InstallOptions) error
@@ -15,4 +26,5 @@ type InstallOptions struct {
 	Values          map[string]interface{}
 	KubeConfig      string
 	RepoName        string
+	Plugin          PluginInterface
 }

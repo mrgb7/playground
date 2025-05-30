@@ -89,6 +89,11 @@ func (b *BasePlugin) UnifiedUninstall(kubeConfig, clusterName string, ensure ...
 	return nil
 }
 
+// Default implementation - plugins can override if needed
+func (b *BasePlugin) OwnsNamespace() bool {
+	return true // Default to true for backward compatibility
+}
+
 func newInstallOptions(plugin Plugin, kubeConfig string) *installer.InstallOptions {
 	chartName := plugin.GetChartName()
 	version := plugin.GetVersion()
@@ -101,5 +106,6 @@ func newInstallOptions(plugin Plugin, kubeConfig string) *installer.InstallOptio
 		Version:         version,
 		KubeConfig:      kubeConfig,
 		RepoName:        plugin.GetRepoName(),
+		Plugin:          plugin,
 	}
 }

@@ -108,6 +108,13 @@ func (h *HelmInstaller) UnInstall(options *InstallOptions) error {
 		return fmt.Errorf("failed to uninstall chart: %w", err)
 	}
 
+	if options.Plugin != nil && options.Plugin.OwnsNamespace() {
+		namespaceManager := NewNamespaceManager(h.KubeConfig)
+		if err := namespaceManager.DeleteNamespace(options.Namespace); err != nil {
+			log.Printf("Warning: Failed to cleanup namespace: %v\n", err)
+		}
+	}
+
 	return nil
 }
 
