@@ -101,6 +101,5 @@ func newInstallOptions(plugin Plugin, kubeConfig string) *installer.InstallOptio
 		Version:         version,
 		KubeConfig:      kubeConfig,
 		RepoName:        plugin.GetRepoName(),
-		// Plugin:          plugin,
 	}
 }
