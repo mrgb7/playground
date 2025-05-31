@@ -156,9 +156,12 @@ func (a *ArgoInstaller) UnInstall(options *InstallOptions) error {
 
 	k8sClient, err := k8s.NewK8sClient(a.KubeConfig)
 	if err != nil {
-		logger.Warnf("Warning: Failed to create k8s client: %v", err)
-	} else if err := k8sClient.DeleteNamespace(options.Namespace); err != nil {
-		logger.Warnf("Warning: Failed to cleanup namespace: %v", err)
+		logger.Warnf("Failed to create k8s client: %v", err)
+		return nil
+	}
+
+	if err := k8sClient.DeleteNamespace(options.Namespace); err != nil {
+		logger.Warnf("Failed to cleanup namespace: %v", err)
 	}
 
 	logger.Infoln("Successfully deleted ArgoCD application: %s", options.ApplicationName)

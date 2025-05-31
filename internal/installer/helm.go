@@ -111,9 +111,12 @@ func (h *HelmInstaller) UnInstall(options *InstallOptions) error {
 
 	k8sClient, err := k8s.NewK8sClient(h.KubeConfig)
 	if err != nil {
-		log.Printf("Warning: Failed to create k8s client: %v\n", err)
-	} else if err := k8sClient.DeleteNamespace(options.Namespace); err != nil {
-		log.Printf("Warning: Failed to cleanup namespace: %v\n", err)
+		log.Printf("Failed to create k8s client: %v\n", err)
+		return nil
+	}
+
+	if err := k8sClient.DeleteNamespace(options.Namespace); err != nil {
+		log.Printf("Failed to cleanup namespace: %v\n", err)
 	}
 
 	return nil
