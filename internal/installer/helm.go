@@ -109,13 +109,11 @@ func (h *HelmInstaller) UnInstall(options *InstallOptions) error {
 		return fmt.Errorf("failed to uninstall chart: %w", err)
 	}
 
-	if options.Plugin != nil {
-		k8sClient, err := k8s.NewK8sClient(h.KubeConfig)
-		if err != nil {
-			log.Printf("Warning: Failed to create k8s client: %v\n", err)
-		} else if err := k8sClient.DeleteNamespace(options.Namespace); err != nil {
-			log.Printf("Warning: Failed to cleanup namespace: %v\n", err)
-		}
+	k8sClient, err := k8s.NewK8sClient(h.KubeConfig)
+	if err != nil {
+		log.Printf("Warning: Failed to create k8s client: %v\n", err)
+	} else if err := k8sClient.DeleteNamespace(options.Namespace); err != nil {
+		log.Printf("Warning: Failed to cleanup namespace: %v\n", err)
 	}
 
 	return nil
