@@ -8,7 +8,6 @@ type PluginInterface interface {
 	GetRepository() string
 	GetRepoName() string
 	GetChartValues() map[string]interface{}
-	OwnsNamespace() bool
 }
 
 type Installer interface {

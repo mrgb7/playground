@@ -11,7 +11,6 @@ type Plugin interface {
 	GetRepository() string
 	GetRepoName() string
 	GetChartValues() map[string]interface{}
-	OwnsNamespace() bool
 }
 
 func CreatePluginsList(kubeConfig, masterClusterIP, clusterName string) ([]Plugin, error) {

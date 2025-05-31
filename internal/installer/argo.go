@@ -154,7 +154,7 @@ func (a *ArgoInstaller) UnInstall(options *InstallOptions) error {
 		return fmt.Errorf("failed to delete ArgoCD application: %w", err)
 	}
 
-	if options.Plugin != nil && options.Plugin.OwnsNamespace() {
+	if options.Plugin != nil {
 		k8sClient, err := k8s.NewK8sClient(a.KubeConfig)
 		if err != nil {
 			logger.Warnf("Warning: Failed to create k8s client: %v", err)
