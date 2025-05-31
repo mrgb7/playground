@@ -2,7 +2,11 @@ package k8s
 
 import (
 	"context"
+	"fmt"
+	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -45,4 +49,53 @@ func (k *K8sClient) GetNameSpace(name string, ctx context.Context) (string, erro
 		return "", err
 	}
 	return namespace.Name, nil
+}
+
+func (k *K8sClient) DeleteNamespace(namespace string) error {
+	if namespace == "" {
+		return nil
+	}
+
+	ns, err := k.Clientset.CoreV1().Namespaces().Get(context.Background(), namespace, v1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("error checking namespace: %w", err)
+	}
+
+	if ns.Status.Phase == corev1.NamespaceTerminating {
+		return k.waitForNamespaceDeletion(namespace)
+	}
+
+	err = k.Clientset.CoreV1().Namespaces().Delete(context.Background(), namespace, v1.DeleteOptions{})
+	if err != nil {
+		return fmt.Errorf("error deleting namespace: %w", err)
+	}
+
+	return k.waitForNamespaceDeletion(namespace)
+}
+
+func (c *K8sClient) waitForNamespaceDeletion(namespace string) error {
+	timeout := 5 * time.Minute
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for namespace deletion after %v", timeout)
+		case <-ticker.C:
+			_, err := c.Clientset.CoreV1().Namespaces().Get(context.Background(), namespace, v1.GetOptions{})
+			if err != nil {
+				if errors.IsNotFound(err) {
+					return nil
+				}
+				return fmt.Errorf("error checking namespace status: %w", err)
+			}
+		}
+	}
 }

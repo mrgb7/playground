@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/mrgb7/playground/internal/k8s"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -106,6 +107,16 @@ func (h *HelmInstaller) UnInstall(options *InstallOptions) error {
 	if err != nil {
 		log.Printf("Error uninstalling chart: %v\n", err)
 		return fmt.Errorf("failed to uninstall chart: %w", err)
+	}
+
+	k8sClient, err := k8s.NewK8sClient(h.KubeConfig)
+	if err != nil {
+		log.Printf("Failed to create k8s client: %v\n", err)
+		return nil
+	}
+
+	if err := k8sClient.DeleteNamespace(options.Namespace); err != nil {
+		log.Printf("Failed to cleanup namespace: %v\n", err)
 	}
 
 	return nil

@@ -154,6 +154,16 @@ func (a *ArgoInstaller) UnInstall(options *InstallOptions) error {
 		return fmt.Errorf("failed to delete ArgoCD application: %w", err)
 	}
 
+	k8sClient, err := k8s.NewK8sClient(a.KubeConfig)
+	if err != nil {
+		logger.Warnf("Failed to create k8s client: %v", err)
+		return nil
+	}
+
+	if err := k8sClient.DeleteNamespace(options.Namespace); err != nil {
+		logger.Warnf("Failed to cleanup namespace: %v", err)
+	}
+
 	logger.Infoln("Successfully deleted ArgoCD application: %s", options.ApplicationName)
 	return nil
 }
@@ -315,6 +325,7 @@ func (a *ArgoInstaller) deleteApplication(options *InstallOptions) error {
 		return fmt.Errorf("failed to create delete request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+a.authToken)
+	req.Header.Set("Content-Type", "application/json")
 
 	q := req.URL.Query()
 	q.Add("cascade", "true")
