@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/mrgb7/playground/internal/k8s"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -109,8 +110,10 @@ func (h *HelmInstaller) UnInstall(options *InstallOptions) error {
 	}
 
 	if options.Plugin != nil && options.Plugin.OwnsNamespace() {
-		namespaceManager := NewNamespaceManager(h.KubeConfig)
-		if err := namespaceManager.DeleteNamespace(options.Namespace); err != nil {
+		k8sClient, err := k8s.NewK8sClient(h.KubeConfig)
+		if err != nil {
+			log.Printf("Warning: Failed to create k8s client: %v\n", err)
+		} else if err := k8sClient.DeleteNamespace(options.Namespace); err != nil {
 			log.Printf("Warning: Failed to cleanup namespace: %v\n", err)
 		}
 	}

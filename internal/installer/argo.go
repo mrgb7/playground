@@ -155,8 +155,10 @@ func (a *ArgoInstaller) UnInstall(options *InstallOptions) error {
 	}
 
 	if options.Plugin != nil && options.Plugin.OwnsNamespace() {
-		namespaceManager := NewNamespaceManager(a.KubeConfig)
-		if err := namespaceManager.DeleteNamespace(options.Namespace); err != nil {
+		k8sClient, err := k8s.NewK8sClient(a.KubeConfig)
+		if err != nil {
+			logger.Warnf("Warning: Failed to create k8s client: %v", err)
+		} else if err := k8sClient.DeleteNamespace(options.Namespace); err != nil {
 			logger.Warnf("Warning: Failed to cleanup namespace: %v", err)
 		}
 	}
