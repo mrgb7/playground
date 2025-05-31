@@ -126,10 +126,6 @@ func (m *MockPlugin) GetRepoName() string {
 	return "test-repo"
 }
 
-func (m *MockPlugin) OwnsNamespace() bool {
-	return true
-}
-
 type MockInstaller struct{}
 
 func (m *MockInstaller) Install(options *installer.InstallOptions) error {
