@@ -17,20 +17,21 @@ func TestTLSPluginInterface(t *testing.T) {
 		t.Errorf("Expected plugin name '%s', got '%s'", TLSName, plugin.GetName())
 	}
 
-	if plugin.GetNamespace() != CertManagerNamespace {
-		t.Errorf("Expected namespace '%s', got '%s'", CertManagerNamespace, plugin.GetNamespace())
+	options := plugin.GetOptions()
+	if options.Namespace != nil && *options.Namespace != CertManagerNamespace {
+		t.Errorf("Expected namespace '%s', got '%v'", CertManagerNamespace, options.Namespace)
 	}
 
-	if plugin.GetVersion() != TLSVersion {
-		t.Errorf("Expected version '%s', got '%s'", TLSVersion, plugin.GetVersion())
+	if options.Version != nil && *options.Version != TLSVersion {
+		t.Errorf("Expected version '%s', got '%v'", TLSVersion, options.Version)
 	}
 
-	if plugin.GetChartName() != "" {
-		t.Errorf("Expected empty chart name, got '%s'", plugin.GetChartName())
+	if options.ChartName != nil && *options.ChartName != "" {
+		t.Errorf("Expected empty chart name, got '%s'", *options.ChartName)
 	}
 
-	if plugin.GetRepository() != "" {
-		t.Errorf("Expected empty repository, got '%s'", plugin.GetRepository())
+	if options.Repository != nil && *options.Repository != "" {
+		t.Errorf("Expected empty repository, got '%s'", *options.Repository)
 	}
 
 	var _ Plugin = plugin

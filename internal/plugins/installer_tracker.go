@@ -13,23 +13,17 @@ import (
 )
 
 const (
-	// InstallerTrackerConfigMapName is the name of the ConfigMap used to track plugin installers
 	InstallerTrackerConfigMapName = "playground-plugin-installer-tracker"
-	// InstallerTrackerNamespace is the namespace where the tracker ConfigMap is stored
-	InstallerTrackerNamespace = "kube-system"
-	// InstallerTypeHelm represents Helm installer
-	InstallerTypeHelm = "helm"
-	// InstallerTypeArgoCD represents ArgoCD installer
-	InstallerTypeArgoCD = "argocd"
+	InstallerTrackerNamespace     = "kube-system"
+	InstallerTypeHelm             = "helm"
+	InstallerTypeArgoCD           = "argocd"
 )
 
-// InstallerTracker manages tracking of which installer was used for each plugin
 type InstallerTracker struct {
 	kubeConfig string
 	k8sClient  *k8s.K8sClient
 }
 
-// NewInstallerTracker creates a new installer tracker
 func NewInstallerTracker(kubeConfig string) (*InstallerTracker, error) {
 	client, err := k8s.NewK8sClient(kubeConfig)
 	if err != nil {
@@ -42,7 +36,6 @@ func NewInstallerTracker(kubeConfig string) (*InstallerTracker, error) {
 	}, nil
 }
 
-// RecordPluginInstaller records which installer was used for a plugin
 func (t *InstallerTracker) RecordPluginInstaller(pluginName, installerType string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -67,7 +60,34 @@ func (t *InstallerTracker) RecordPluginInstaller(pluginName, installerType strin
 	return nil
 }
 
-// GetPluginInstaller retrieves which installer was used for a plugin
+func (t *InstallerTracker) GetAllPluginByInstaller(installer string) ([]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	configMap, err := t.k8sClient.Clientset.CoreV1().ConfigMaps(InstallerTrackerNamespace).Get(
+		ctx, InstallerTrackerConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			logger.Debugln("Tracker ConfigMap not found, no installers recorded")
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get tracker ConfigMap: %w", err)
+	}
+
+	if configMap.Data == nil {
+		return nil, nil
+	}
+
+	var data []string
+	for plugin, installerType := range configMap.Data {
+		if installerType == installer {
+			data = append(data, plugin)
+		}
+	}
+
+	return data, nil
+}
+
 func (t *InstallerTracker) GetPluginInstaller(pluginName string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -92,7 +112,6 @@ func (t *InstallerTracker) GetPluginInstaller(pluginName string) (string, error)
 	return installerType, nil
 }
 
-// RemovePluginInstaller removes the tracking record for a plugin
 func (t *InstallerTracker) RemovePluginInstaller(pluginName string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -122,7 +141,6 @@ func (t *InstallerTracker) RemovePluginInstaller(pluginName string) error {
 	return nil
 }
 
-// getOrCreateTrackerConfigMap gets the tracker ConfigMap or creates it if it doesn't exist
 func (t *InstallerTracker) getOrCreateTrackerConfigMap(ctx context.Context) (*v1.ConfigMap, error) {
 	configMap, err := t.k8sClient.Clientset.CoreV1().ConfigMaps(InstallerTrackerNamespace).Get(
 		ctx, InstallerTrackerConfigMapName, metav1.GetOptions{})

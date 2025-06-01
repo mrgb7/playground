@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-const (
+var (
 	TLSName              = "tls"
 	TLSVersion           = "1.0.0"
 	TLSSecretName        = "local-ca-secret"
@@ -57,12 +57,19 @@ func (t *TLS) GetName() string {
 	return TLSName
 }
 
+func (t *TLS) GetOptions() PluginOptions {
+	return PluginOptions{
+		Version:     &TLSVersion,
+		Namespace:   &CertManagerNamespace,
+		ChartName:   &TLSName,
+		RepoName:    &CertManagerRepoName,
+		Repository:  &CertManagerRepoURL,
+		releaseName: &TLSName,
+	}
+}
+
 func (t *TLS) Install(kubeConfig, clusterName string, ensure ...bool) error {
 	logger.Infoln("Installing TLS plugin for cluster: %s", clusterName)
-
-	if err := t.checkDependencies(); err != nil {
-		return fmt.Errorf("dependency check failed: %w", err)
-	}
 
 	caCert, caKey, err := t.generateCACertificate()
 	if err != nil {
@@ -134,19 +141,6 @@ func (t *TLS) Status() string {
 	}
 
 	return "TLS is configured and ready"
-}
-
-func (t *TLS) checkDependencies() error {
-	logger.Infoln("Checking TLS dependencies...")
-
-	certManager := NewCertManager(t.KubeConfig)
-	cmStatus := certManager.Status()
-	if !strings.Contains(cmStatus, "running") {
-		return fmt.Errorf("cert-manager is required but not installed/running. Status: %s", cmStatus)
-	}
-
-	logger.Successln("All dependencies satisfied")
-	return nil
 }
 
 func (t *TLS) generateCACertificate() ([]byte, []byte, error) {
@@ -410,26 +404,6 @@ func (t *TLS) GetClusterIssuerName() string {
 	return TLSClusterIssuerName
 }
 
-func (t *TLS) GetNamespace() string {
-	return CertManagerNamespace
-}
-
-func (t *TLS) GetVersion() string {
-	return TLSVersion
-}
-
-func (t *TLS) GetChartName() string {
-	return ""
-}
-
-func (t *TLS) GetRepository() string {
-	return ""
-}
-
-func (t *TLS) GetRepoName() string {
-	return ""
-}
-
-func (t *TLS) GetChartValues() map[string]interface{} {
-	return make(map[string]interface{})
+func (t *TLS) GetDependencies() []string {
+	return []string{"cert-manager"} // TLS depends on cert-manager
 }

@@ -58,3 +58,11 @@ Thumbs.db
 playground
 /playground
 chaos.sh
+
+# Logs
+*.log
+
+# Coverage reports
+*.out
+*.html
+*.htm

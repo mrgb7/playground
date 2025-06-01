@@ -6,13 +6,14 @@ type Installer interface {
 }
 
 type InstallOptions struct {
-	ApplicationName string
-	RepoURL         string
-	Path            string
-	Version         string
-	Namespace       string
-	ChartName       *string
-	Values          map[string]interface{}
-	KubeConfig      string
-	RepoName        string
+	ApplicationName  string
+	RepoURL          string
+	Path             string
+	Version          string
+	Namespace        string
+	ChartName        *string
+	Values           map[string]interface{}
+	KubeConfig       string
+	RepoName         string
+	CRDsGroupVersion string
 }

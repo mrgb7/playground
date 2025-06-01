@@ -13,18 +13,14 @@ var listCmd = &cobra.Command{
 	Long:  `List all available plugins for the cluster`,
 	Run: func(cmd *cobra.Command, args []string) {
 		clusterName, _ := cmd.Flags().GetString("cluster-name")
-		if clusterName == "" {
-			logger.Infoln("Basic plugins:")
-			for _, plugin := range plugins.List {
-				logger.Infoln("  %s: %s", plugin.GetName(), plugin.Status())
-			}
-			logger.Infoln("")
-			logger.Infoln("For cluster-specific plugins, specify --cluster-name")
-			return
-		}
 
 		c := types.Cluster{
 			Name: clusterName,
+		}
+
+		if !c.IsExists() {
+			logger.Errorln("Cluster '%s' does not exist. Please create it first.", clusterName)
+			return
 		}
 
 		ip := c.GetMasterIP()
@@ -40,8 +36,10 @@ var listCmd = &cobra.Command{
 		}
 
 		logger.Infoln("Available plugins for cluster '%s':", clusterName)
+
 		for _, plugin := range pluginsList {
-			logger.Infoln("  %s: %s", plugin.GetName(), plugin.Status())
+			status := plugin.Status()
+			logger.Infoln("  %s: %s", plugin.GetName(), status)
 		}
 	},
 }

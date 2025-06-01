@@ -13,14 +13,16 @@ type CertManager struct {
 	*BasePlugin
 }
 
-const (
+var (
 	CertManagerRepoURL      = "https://charts.jetstack.io"
 	CertManagerChartName    = "cert-manager"
 	CertManagerChartVersion = "v1.17.2"
 	CertManagerReleaseName  = "cert-manager"
 	CertManagerNamespace    = "cert-manager"
 	CertManagerRepoName     = "jetstack"
+)
 
+const (
 	DefaultWebhookTimeout = 10
 )
 
@@ -30,6 +32,18 @@ func NewCertManager(kubeConfig string) *CertManager {
 	}
 	cm.BasePlugin = NewBasePlugin(kubeConfig, cm)
 	return cm
+}
+
+func (c *CertManager) GetOptions() PluginOptions {
+	return PluginOptions{
+		Version:          &CertManagerChartVersion,
+		Namespace:        &CertManagerNamespace,
+		ChartName:        &CertManagerChartName,
+		RepoName:         &CertManagerRepoName,
+		Repository:       &CertManagerRepoURL,
+		ChartValues:      c.getDefaultValues(),
+		CRDsGroupVersion: "cert-manager.io",
+	}
 }
 
 func (c *CertManager) GetName() string {
@@ -61,7 +75,7 @@ func (c *CertManager) getDefaultValues() map[string]interface{} {
 func (c *CertManager) Status() string {
 	client, err := k8s.NewK8sClient(c.KubeConfig)
 	if err != nil {
-		logger.Errorln("failed to create k8s client: %v", err)
+		logger.Debugf("failed to create k8s client: %v", err)
 		return StatusUnknown
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -69,36 +83,12 @@ func (c *CertManager) Status() string {
 
 	ns, err := client.GetNameSpace(CertManagerNamespace, ctx)
 	if ns == "" || err != nil {
-		logger.Errorln("failed to get cert-manager namespace: %v", err)
+		logger.Debugf("cert-manager namespace not found or error occurred: %v", err)
 		return StatusNotInstalled
 	}
-	return "cert-manager is running"
+	return StatusRunning
 }
 
-func (c *CertManager) GetNamespace() string {
-	return CertManagerNamespace
-}
-
-func (c *CertManager) GetVersion() string {
-	return CertManagerChartVersion
-}
-
-func (c *CertManager) GetChartName() string {
-	return CertManagerChartName
-}
-
-func (c *CertManager) GetRepository() string {
-	return CertManagerRepoURL
-}
-
-func (c *CertManager) GetChartValues() map[string]interface{} {
-	return c.getDefaultValues()
-}
-
-func (c *CertManager) GetReleaseName() string {
-	return CertManagerReleaseName
-}
-
-func (c *CertManager) GetRepoName() string {
-	return CertManagerRepoName
+func (c *CertManager) GetDependencies() []string {
+	return []string{} // cert-manager has no dependencies
 }

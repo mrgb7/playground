@@ -2,20 +2,19 @@ package plugins
 
 import (
 	"context"
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/mrgb7/playground/internal/k8s"
 	"github.com/mrgb7/playground/pkg/logger"
 )
 
-const (
+var (
 	DefaultNginxReplicas = 2
 	NginxNamespace       = "ingress-nginx"
 	NginxChartVersion    = "4.11.3"
 	NginxChartName       = "ingress-nginx"
 	NginxRepoName        = "ingress-nginx"
+	NginxRepoURL         = "https://kubernetes.github.io/ingress-nginx"
 )
 
 type Nginx struct {
@@ -35,12 +34,20 @@ func (n *Nginx) GetName() string {
 	return "nginx-ingress"
 }
 
-func (n *Nginx) Install(kubeConfig, clusterName string, ensure ...bool) error {
-	// Check dependencies before installation
-	if err := n.checkDependencies(kubeConfig); err != nil {
-		return fmt.Errorf("dependency check failed: %w", err)
+func (n *Nginx) GetOptions() PluginOptions {
+	return PluginOptions{
+		Version:          &NginxChartVersion,
+		Namespace:        &NginxNamespace,
+		ChartName:        &NginxChartName,
+		RepoName:         &NginxRepoName,
+		Repository:       &NginxRepoURL,
+		releaseName:      &NginxChartName,
+		ChartValues:      n.GetChartValues(),
+		CRDsGroupVersion: "networking.k8s.io",
 	}
+}
 
+func (n *Nginx) Install(kubeConfig, clusterName string, ensure ...bool) error {
 	return n.UnifiedInstall(kubeConfig, clusterName, ensure...)
 }
 
@@ -56,7 +63,7 @@ func (n *Nginx) Status() string {
 
 	c, err := k8s.NewK8sClient(n.KubeConfig)
 	if err != nil {
-		logger.Errorf("failed to create k8s client: %v", err)
+		logger.Debugf("failed to create k8s client: %v", err)
 		return StatusUnknown
 	}
 
@@ -68,45 +75,7 @@ func (n *Nginx) Status() string {
 		logger.Debugf("nginx namespace not found or error occurred: %v", err)
 		return StatusNotInstalled
 	}
-	return n.GetName() + " is " + StatusRunning
-}
-
-func (n *Nginx) checkDependencies(kubeConfig string) error {
-	logger.Infoln("Checking nginx-ingress dependencies...")
-
-	// Check for load-balancer dependency
-	lb, err := NewLoadBalancer(kubeConfig, "")
-	if err != nil {
-		return fmt.Errorf("failed to create loadbalancer client: %w", err)
-	}
-
-	lbStatus := lb.Status()
-	if !strings.Contains(lbStatus, StatusRunning) {
-		return fmt.Errorf("load-balancer plugin is required but not installed/running. Status: %s", lbStatus)
-	}
-
-	logger.Successln("All dependencies satisfied")
-	return nil
-}
-
-func (n *Nginx) GetNamespace() string {
-	return NginxNamespace
-}
-
-func (n *Nginx) GetVersion() string {
-	return NginxChartVersion
-}
-
-func (n *Nginx) GetChartName() string {
-	return NginxChartName
-}
-
-func (n *Nginx) GetRepository() string {
-	return "https://kubernetes.github.io/ingress-nginx"
-}
-
-func (n *Nginx) GetRepoName() string {
-	return NginxRepoName
+	return StatusRunning
 }
 
 func (n *Nginx) GetChartValues() map[string]interface{} {
@@ -136,4 +105,8 @@ func (n *Nginx) GetChartValues() map[string]interface{} {
 			"enabled": true,
 		},
 	}
+}
+
+func (n *Nginx) GetDependencies() []string {
+	return []string{"load-balancer"} // nginx-ingress depends on load-balancer
 }

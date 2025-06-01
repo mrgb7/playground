@@ -14,13 +14,16 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-const (
+var (
 	IngressNamespace = "ingress-system"
 	IngressName      = "ingress"
 	IngressVersion   = "1.0.0"
-	ArgoCDPort       = 80
 	TrueValue        = "true"
 	FalseValue       = "false"
+)
+
+const (
+	ArgoCDPort = 80
 )
 
 type Ingress struct {
@@ -48,12 +51,15 @@ func (i *Ingress) GetName() string {
 	return IngressName
 }
 
+func (i *Ingress) GetOptions() PluginOptions {
+	return PluginOptions{
+		Version:   &IngressVersion,
+		Namespace: &IngressNamespace,
+	}
+}
+
 func (i *Ingress) Install(kubeConfig, clusterName string, ensure ...bool) error {
 	logger.Infoln("Installing ingress plugin for cluster: %s", clusterName)
-
-	if err := i.checkDependencies(); err != nil {
-		return fmt.Errorf("dependency check failed: %w", err)
-	}
 
 	if err := i.ensureNginxLoadBalancer(); err != nil {
 		return fmt.Errorf("failed to ensure nginx LoadBalancer: %w", err)
@@ -99,28 +105,6 @@ func (i *Ingress) Status() string {
 	return "Ingress is configured"
 }
 
-func (i *Ingress) checkDependencies() error {
-	logger.Infoln("Checking ingress dependencies...")
-
-	nginx := NewNginx(i.KubeConfig)
-	nginxStatus := nginx.Status()
-	if !strings.Contains(nginxStatus, StatusRunning) {
-		return fmt.Errorf("nginx plugin is required but not installed/running. Status: %s", nginxStatus)
-	}
-
-	lb, err := NewLoadBalancer(i.KubeConfig, "")
-	if err != nil {
-		return fmt.Errorf("failed to create loadbalancer client: %w", err)
-	}
-	lbStatus := lb.Status()
-	if !strings.Contains(lbStatus, StatusRunning) {
-		return fmt.Errorf("loadbalancer plugin is required but not installed/running. Status: %s", lbStatus)
-	}
-
-	logger.Successln("All dependencies satisfied")
-	return nil
-}
-
 func (i *Ingress) ensureNginxLoadBalancer() error {
 	logger.Infoln("Ensuring nginx service is LoadBalancer type...")
 
@@ -155,7 +139,10 @@ func (i *Ingress) setupClusterDomain() {
 func (i *Ingress) configureArgoCDIngress() error {
 	logger.Infoln("Checking for ArgoCD installation...")
 
-	argocd := NewArgocd(i.KubeConfig)
+	argocd, err := NewArgocd(i.KubeConfig)
+	if err != nil {
+		return fmt.Errorf("failed to get ArgoCD: %w", err)
+	}
 	argoCDStatus := argocd.Status()
 	if !strings.Contains(argoCDStatus, StatusRunning) {
 		logger.Infoln("ArgoCD not installed, skipping ingress configuration")
@@ -236,7 +223,10 @@ func (i *Ingress) printHostInstructions() error {
 	logger.Infoln("🎯 Add these entries to your /etc/hosts file:")
 	logger.Infoln("echo '%s %s.local' | sudo tee -a /etc/hosts", nginxIP, i.ClusterName)
 
-	argocd := NewArgocd(i.KubeConfig)
+	argocd, err := NewArgocd(i.KubeConfig)
+	if err != nil {
+		return fmt.Errorf("failed to get ArgoCD plugin: %w", err)
+	}
 	argoCDStatus := argocd.Status()
 	if strings.Contains(argoCDStatus, StatusRunning) {
 		logger.Infoln("echo '%s argocd.%s.local' | sudo tee -a /etc/hosts", nginxIP, i.ClusterName)
@@ -257,30 +247,6 @@ func (i *Ingress) printHostInstructions() error {
 	logger.Infoln("🌐 Cluster domain: %s.local", i.ClusterName)
 
 	return nil
-}
-
-func (i *Ingress) GetNamespace() string {
-	return IngressNamespace
-}
-
-func (i *Ingress) GetVersion() string {
-	return IngressVersion
-}
-
-func (i *Ingress) GetChartName() string {
-	return ""
-}
-
-func (i *Ingress) GetRepository() string {
-	return ""
-}
-
-func (i *Ingress) GetRepoName() string {
-	return ""
-}
-
-func (i *Ingress) GetChartValues() map[string]interface{} {
-	return make(map[string]interface{})
 }
 
 func (i *Ingress) isTLSClusterIssuerAvailable() bool {
@@ -420,4 +386,8 @@ func (i *Ingress) createNewArgoCDIngress(hostname string, isTLSAvailable bool) e
 		logger.Successln("Created ArgoCD ingress with host: argocd.%s.local", i.ClusterName)
 	}
 	return nil
+}
+
+func (i *Ingress) GetDependencies() []string {
+	return []string{"nginx-ingress", "load-balancer"} // ingress depends on nginx-ingress and load-balancer
 }

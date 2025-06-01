@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-const (
+var (
 	repoURL      = "https://metallb.github.io/metallb"
 	chartName    = "metallb"
 	chartVersion = "0.14.9"
@@ -43,6 +43,18 @@ func NewLoadBalancer(kubeConfig string, masterClusterIP string) (*LoadBalancer, 
 	return lb, nil
 }
 
+func (l *LoadBalancer) GetOptions() PluginOptions {
+	return PluginOptions{
+		Version:          &chartVersion,
+		Namespace:        &namespace,
+		ChartName:        &chartName,
+		RepoName:         &repoName,
+		Repository:       &repoURL,
+		releaseName:      &releaseName,
+		CRDsGroupVersion: "metallb.io",
+	}
+}
+
 func (l *LoadBalancer) GetName() string {
 	return "load-balancer"
 }
@@ -52,6 +64,12 @@ func (l *LoadBalancer) Install(kubeConfig, clusterName string, ensure ...bool) e
 	if err != nil {
 		return fmt.Errorf("failed to install loadbalancer: %w", err)
 	}
+
+	err = l.ensure()
+	if err != nil {
+		return fmt.Errorf("failed to ensure loadbalancer: %w", err)
+	}
+
 	err = l.deleteValidationWebhookConfig()
 	if err != nil {
 		return fmt.Errorf("failed to delete validation webhook config: %w", err)
@@ -67,6 +85,35 @@ func (l *LoadBalancer) Install(kubeConfig, clusterName string, ensure ...bool) e
 	return nil
 }
 
+func (l *LoadBalancer) ensure() error {
+	timeout := 5 * time.Minute
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for ensure %v", timeout)
+		case <-ticker.C:
+			_, err := l.k8sClient.GetNameSpace(namespace, ctx)
+			if err != nil {
+				continue
+			}
+			_, err = l.k8sClient.Clientset.AdmissionregistrationV1().
+				ValidatingWebhookConfigurations().
+				Get(ctx, "metallb-webhook-configuration", metav1.GetOptions{})
+			if err != nil {
+				continue
+			}
+			logger.Successln("LoadBalancer is ensured")
+			return nil
+		}
+	}
+}
+
 func (l *LoadBalancer) Uninstall(kubeConfig, clusterName string, ensure ...bool) error {
 	logger.Infoln("Uninstalling loadbalancer")
 	return l.UnifiedUninstall(kubeConfig, clusterName, ensure...)
@@ -77,11 +124,11 @@ func (l *LoadBalancer) Status() string {
 	defer cancel()
 	ns, err := l.k8sClient.GetNameSpace(namespace, ctx)
 	if ns == "" || err != nil {
-		logger.Errorln("failed to get metallb namespace: %v", err)
+		logger.Debugf("failed to get metallb namespace: %v", err)
 		return StatusNotInstalled
 	}
 
-	return "LoadBalancer is running"
+	return StatusRunning
 }
 
 func (l *LoadBalancer) addl2IpPool() error {
@@ -226,9 +273,18 @@ func (l *LoadBalancer) addl2Adv() error {
 }
 
 func (l *LoadBalancer) deleteValidationWebhookConfig() error {
-	return l.k8sClient.Clientset.AdmissionregistrationV1().
+	err := l.k8sClient.Clientset.AdmissionregistrationV1().
 		ValidatingWebhookConfigurations().
-		Delete(context.TODO(), "metallb-webhook-configuration", metav1.DeleteOptions{})
+		Delete(context.Background(), "metallb-webhook-configuration", metav1.DeleteOptions{})
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			logger.Debugln("Validation webhook configuration already deleted")
+			return nil // Already deleted
+		}
+		return fmt.Errorf("failed to delete validation webhook configuration: %w", err)
+	}
+
+	return nil
 }
 
 func (l *LoadBalancer) getIPRange() string {
@@ -239,26 +295,6 @@ func (l *LoadBalancer) getIPRange() string {
 	return fmt.Sprintf("%s-%s", start, end)
 }
 
-func (l *LoadBalancer) GetNamespace() string {
-	return namespace
-}
-
-func (l *LoadBalancer) GetVersion() string {
-	return chartVersion
-}
-
-func (l *LoadBalancer) GetChartName() string {
-	return chartName
-}
-
-func (l *LoadBalancer) GetRepository() string {
-	return repoURL
-}
-
-func (l *LoadBalancer) GetChartValues() map[string]interface{} {
-	return make(map[string]interface{})
-}
-
-func (l *LoadBalancer) GetRepoName() string {
-	return repoName
+func (l *LoadBalancer) GetDependencies() []string {
+	return []string{}
 }

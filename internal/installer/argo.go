@@ -163,6 +163,11 @@ func (a *ArgoInstaller) UnInstall(options *InstallOptions) error {
 	if err := k8sClient.DeleteNamespace(options.Namespace); err != nil {
 		logger.Warnf("Failed to cleanup namespace: %v", err)
 	}
+	if options.CRDsGroupVersion != "" {
+		if err := k8sClient.DeleteCRDsGroup(options.CRDsGroupVersion); err != nil {
+			logger.Warnf("Failed to delete CRDs: %v", err)
+		}
+	}
 
 	logger.Infoln("Successfully deleted ArgoCD application: %s", options.ApplicationName)
 	return nil

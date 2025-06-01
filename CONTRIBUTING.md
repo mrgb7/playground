@@ -159,6 +159,58 @@ You can trigger a manual release with specific version:
    - `patch`: Force patch version bump
    - `v1.2.3`: Specific version number
 
+## Chaos Testing
+
+The project includes a comprehensive chaos testing script (`chaos.sh`) that validates the playground's functionality through destructive testing scenarios.
+
+### Running Chaos Tests
+
+```bash
+# Make the script executable
+chmod +x chaos.sh
+
+# Run the chaos test suite
+./chaos.sh
+```
+
+### What Chaos Tests Cover
+
+The chaos testing script performs the following validations:
+
+1. **Build Verification**: Ensures the project builds successfully
+2. **Cluster Lifecycle**: Tests cluster creation, listing, and deletion
+3. **Plugin Management**: 
+   - Tests plugin installation and removal
+   - Validates dependency management between plugins
+   - Ensures proper cleanup of plugin resources
+4. **Dependency Resolution**: 
+   - Tests automatic installation of required dependencies
+   - Validates dependency protection (e.g., preventing removal of dependencies)
+5. **Resource Configuration**: Tests cluster creation with custom configurations
+6. **Error Handling**: Validates expected failures (e.g., duplicate cluster creation)
+
+### Test Scenarios
+
+- **ArgoCD Plugin**: Installation, usage, and removal
+- **LoadBalancer Plugin**: Installation and interaction with ArgoCD
+- **TLS Plugin**: Dependency on cert-manager
+- **Ingress Plugin**: Complex dependencies (NGINX, cert-manager, load-balancer)
+- **Cluster Configuration**: Custom CPU and memory settings
+
+### Prerequisites
+
+Before running chaos tests:
+- Ensure you have `kubectl` installed and configured
+- Have sufficient system resources for test clusters
+
+### Cleanup
+
+The script automatically cleans up test resources, including the `chaos-test` cluster. If tests fail unexpectedly, you may need to manually clean up:
+
+```bash
+./bin/playground cluster delete chaos-test
+```
+
 ## Code Quality Standards
 
 - **Go Version**: Go 1.24+

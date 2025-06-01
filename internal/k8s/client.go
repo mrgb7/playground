@@ -6,6 +6,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
@@ -15,9 +16,10 @@ import (
 )
 
 type K8sClient struct {
-	Clientset *kubernetes.Clientset
-	Dynamic   *dynamic.DynamicClient
-	Config    *rest.Config
+	Clientset              *kubernetes.Clientset
+	Dynamic                *dynamic.DynamicClient
+	apiextensionsclientset *apiextensionsclientset.Clientset
+	Config                 *rest.Config
 }
 
 func NewK8sClient(kubeConfig string) (*K8sClient, error) {
@@ -35,11 +37,16 @@ func NewK8sClient(kubeConfig string) (*K8sClient, error) {
 	if err != nil {
 		return nil, err
 	}
+	apiextensionsClient, err := apiextensionsclientset.NewForConfig(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create apiextensions client: %w", err)
+	}
 
 	return &K8sClient{
-		Clientset: clientset,
-		Dynamic:   dynamicClient,
-		Config:    restConfig,
+		Clientset:              clientset,
+		Dynamic:                dynamicClient,
+		apiextensionsclientset: apiextensionsClient,
+		Config:                 restConfig,
 	}, nil
 }
 
@@ -98,4 +105,43 @@ func (c *K8sClient) waitForNamespaceDeletion(namespace string) error {
 			}
 		}
 	}
+}
+
+func (k *K8sClient) GetCRDsByGroup(group string) ([]string, error) {
+	if k.apiextensionsclientset == nil {
+		return nil, fmt.Errorf("apiextensions client is not initialized")
+	}
+
+	crdList, err := k.apiextensionsclientset.ApiextensionsV1().CustomResourceDefinitions().List(context.Background(), v1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list CRDs for group %s: %w", group, err)
+	}
+
+	if len(crdList.Items) == 0 {
+		return nil, fmt.Errorf("no CRDs found for group %s", group)
+	}
+
+	var crds []string
+	for _, item := range crdList.Items {
+		if item.Spec.Group == group {
+			crds = append(crds, item.Name)
+		}
+	}
+	return crds, nil
+}
+
+func (k *K8sClient) DeleteCRDsGroup(group string) error {
+	crds, err := k.GetCRDsByGroup(group)
+	if err != nil {
+		return fmt.Errorf("failed to get CRDs for group %s: %w", group, err)
+	}
+
+	for _, crd := range crds {
+		err = k.apiextensionsclientset.ApiextensionsV1().CustomResourceDefinitions().Delete(context.Background(), crd, v1.DeleteOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to delete CRD %s: %w", crd, err)
+		}
+	}
+
+	return nil
 }

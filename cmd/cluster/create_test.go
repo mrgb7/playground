@@ -2,6 +2,8 @@ package cluster
 
 import (
 	"testing"
+
+	"github.com/mrgb7/playground/types"
 )
 
 func TestConstants(t *testing.T) {
@@ -58,7 +60,7 @@ func TestValidateCPUCount(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateCPUCount(tt.cpus, tt.nodeType)
+			err := types.ValidateCPUCount(tt.cpus, tt.nodeType)
 			if tt.expectError && err == nil {
 				t.Errorf("Expected error for %d CPUs but got none", tt.cpus)
 			}
@@ -87,7 +89,7 @@ func TestValidateMemoryFormat(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateMemoryFormat(tt.memory, tt.nodeType)
+			err := types.ValidateMemoryFormat(tt.memory, tt.nodeType)
 			if tt.expectError && err == nil {
 				t.Errorf("Expected error for memory '%s' but got none", tt.memory)
 			}
@@ -117,7 +119,7 @@ func TestValidateDiskFormat(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateDiskFormat(tt.disk, tt.nodeType)
+			err := types.ValidateDiskFormat(tt.disk, tt.nodeType)
 			if tt.expectError && err == nil {
 				t.Errorf("Expected error for disk '%s' but got none", tt.disk)
 			}
