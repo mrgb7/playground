@@ -105,9 +105,7 @@ func NewInstaller(plugin Plugin, kubeConfig, clusterName string) (installer.Inst
 // IsPluginInstalled checks if a plugin is installed based on its status
 func IsPluginInstalled(status string) bool {
 	statusLower := strings.ToLower(status)
-	return strings.Contains(statusLower, "running") ||
-		strings.Contains(statusLower, "configured") ||
-		strings.Contains(statusLower, "ready")
+	return strings.Contains(statusLower, "running")
 }
 
 // GetInstalledPlugins returns a list of currently installed plugin names
