@@ -102,6 +102,22 @@ func (m *MockPlugin) Status() string {
 	return "mock status"
 }
 
+func (m *MockPlugin) GetOptions() PluginOptions {
+	version := "1.0.0"
+	namespace := "test-namespace"
+	chartName := "test-chart"
+	repository := "https://test.repo.com"
+	repoName := "test-repo"
+	return PluginOptions{
+		Version:     &version,
+		Namespace:   &namespace,
+		ChartName:   &chartName,
+		Repository:  &repository,
+		RepoName:    &repoName,
+		ChartValues: map[string]interface{}{"test": "value"},
+	}
+}
+
 func (m *MockPlugin) GetNamespace() string {
 	return "test-namespace"
 }

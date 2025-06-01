@@ -5,12 +5,18 @@ type Plugin interface {
 	Install(kubeConfig, clusterName string, ensure ...bool) error
 	Uninstall(kubeConfig, clusterName string, ensure ...bool) error
 	Status() string
-	GetNamespace() string
-	GetVersion() string
-	GetChartName() string
-	GetRepository() string
-	GetRepoName() string
-	GetChartValues() map[string]interface{}
+	GetOptions() PluginOptions
+}
+
+type PluginOptions struct {
+	Version          *string
+	Namespace        *string
+	ChartName        *string
+	RepoName         *string
+	Repository       *string
+	releaseName      *string
+	ChartValues      map[string]interface{}
+	CRDsGroupVersion string
 }
 
 func CreatePluginsList(kubeConfig, masterClusterIP, clusterName string) ([]Plugin, error) {
@@ -28,9 +34,13 @@ func CreatePluginsList(kubeConfig, masterClusterIP, clusterName string) ([]Plugi
 	if err != nil {
 		return nil, err
 	}
+	argocd, err := NewArgocd(kubeConfig)
+	if err != nil {
+		return nil, err
+	}
 
 	return []Plugin{
-		NewArgocd(kubeConfig),
+		argocd,
 		NewCertManager(kubeConfig),
 		lb,
 		NewNginx(kubeConfig),
@@ -38,13 +48,3 @@ func CreatePluginsList(kubeConfig, masterClusterIP, clusterName string) ([]Plugi
 		tls,
 	}, nil
 }
-
-func GetBasicPluginsList() []Plugin {
-	return []Plugin{
-		NewArgocd(""),
-		NewCertManager(""),
-		NewNginx(""),
-	}
-}
-
-var List = GetBasicPluginsList()

@@ -27,41 +27,46 @@ func TestNginx_GetName(t *testing.T) {
 
 func TestNginx_GetNamespace(t *testing.T) {
 	nginx := NewNginx("")
+	options := nginx.GetOptions()
 	expected := NginxNamespace
-	if nginx.GetNamespace() != expected {
-		t.Errorf("expected namespace %s, got %s", expected, nginx.GetNamespace())
+	if options.Namespace == nil || *options.Namespace != expected {
+		t.Errorf("expected namespace %s, got %v", expected, options.Namespace)
 	}
 }
 
 func TestNginx_GetVersion(t *testing.T) {
 	nginx := NewNginx("")
+	options := nginx.GetOptions()
 	expected := NginxChartVersion
-	if nginx.GetVersion() != expected {
-		t.Errorf("expected version %s, got %s", expected, nginx.GetVersion())
+	if options.Version == nil || *options.Version != expected {
+		t.Errorf("expected version %s, got %v", expected, options.Version)
 	}
 }
 
 func TestNginx_GetChartName(t *testing.T) {
 	nginx := NewNginx("")
+	options := nginx.GetOptions()
 	expected := NginxChartName
-	if nginx.GetChartName() != expected {
-		t.Errorf("expected chart name %s, got %s", expected, nginx.GetChartName())
+	if options.ChartName == nil || *options.ChartName != expected {
+		t.Errorf("expected chart name %s, got %v", expected, options.ChartName)
 	}
 }
 
 func TestNginx_GetRepository(t *testing.T) {
 	nginx := NewNginx("")
+	options := nginx.GetOptions()
 	expected := "https://kubernetes.github.io/ingress-nginx"
-	if nginx.GetRepository() != expected {
-		t.Errorf("expected repository %s, got %s", expected, nginx.GetRepository())
+	if options.Repository == nil || *options.Repository != expected {
+		t.Errorf("expected repository %s, got %v", expected, options.Repository)
 	}
 }
 
 func TestNginx_GetRepoName(t *testing.T) {
 	nginx := NewNginx("")
+	options := nginx.GetOptions()
 	expected := NginxRepoName
-	if nginx.GetRepoName() != expected {
-		t.Errorf("expected repo name %s, got %s", expected, nginx.GetRepoName())
+	if options.RepoName == nil || *options.RepoName != expected {
+		t.Errorf("expected repo name %s, got %v", expected, options.RepoName)
 	}
 }
 

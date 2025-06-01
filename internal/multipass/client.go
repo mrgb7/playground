@@ -33,7 +33,8 @@ type MultiPassList struct {
 }
 
 type MultiPassListItem struct {
-	Name string `json:"name"`
+	Name  string `json:"name"`
+	State string `json:"state"`
 }
 
 type MultiPassInfo struct {
@@ -42,7 +43,8 @@ type MultiPassInfo struct {
 }
 
 type MultiPassNode struct {
-	IPv4 []string `json:"ipv4"`
+	IPv4  []string `json:"ipv4"`
+	State string   `json:"state"`
 }
 
 type MultipassClient struct {
@@ -327,4 +329,35 @@ func (m *MultipassClient) ListClusters() ([]string, error) {
 	}
 
 	return clusters, nil
+}
+
+func (m *MultipassClient) GetClusterInfo(clusterName string) (*MultiPassInfo, error) {
+	masterName := clusterName + "-master"
+	cmd := exec.Command(m.BinaryPath, "info", masterName, "--format", "json") //nolint:gosec
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("failed to get info for cluster '%s': %s - %w", clusterName, stderr.String(), err)
+	}
+
+	var info MultiPassInfo
+	if err := json.Unmarshal(stdout.Bytes(), &info); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON output: %w", err)
+	}
+
+	if info.Info[masterName].State == "Deleted" {
+		logger.Warn("Cluster found but '%s' is in 'Deleted' state, it may not be fully operational.", clusterName)
+		logger.Warn("Cleaning up.")
+		err := m.PurgeNodes()
+		if err != nil {
+			return nil, fmt.Errorf("failed to purge deleted nodes: %w", err)
+		}
+
+		return nil, fmt.Errorf("cluster not found: %s", clusterName)
+
+	}
+
+	return &info, nil
 }

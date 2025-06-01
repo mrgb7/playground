@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-const (
+var (
 	TLSName              = "tls"
 	TLSVersion           = "1.0.0"
 	TLSSecretName        = "local-ca-secret"
@@ -55,6 +55,17 @@ func NewTLS(kubeConfig, clusterName string) (*TLS, error) {
 
 func (t *TLS) GetName() string {
 	return TLSName
+}
+
+func (t *TLS) GetOptions() PluginOptions {
+	return PluginOptions{
+		Version:     &TLSVersion,
+		Namespace:   &CertManagerNamespace,
+		ChartName:   &TLSName,
+		RepoName:    &CertManagerRepoName,
+		Repository:  &CertManagerRepoURL,
+		releaseName: &TLSName,
+	}
 }
 
 func (t *TLS) Install(kubeConfig, clusterName string, ensure ...bool) error {
@@ -393,31 +404,6 @@ func (t *TLS) GetClusterIssuerName() string {
 	return TLSClusterIssuerName
 }
 
-func (t *TLS) GetNamespace() string {
-	return CertManagerNamespace
-}
-
-func (t *TLS) GetVersion() string {
-	return TLSVersion
-}
-
-func (t *TLS) GetChartName() string {
-	return ""
-}
-
-func (t *TLS) GetRepository() string {
-	return ""
-}
-
-func (t *TLS) GetRepoName() string {
-	return ""
-}
-
-func (t *TLS) GetChartValues() map[string]interface{} {
-	return make(map[string]interface{})
-}
-
-// GetDependencies returns the list of plugins that TLS depends on
 func (t *TLS) GetDependencies() []string {
 	return []string{"cert-manager"} // TLS depends on cert-manager
 }

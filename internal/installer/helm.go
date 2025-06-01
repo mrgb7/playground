@@ -3,12 +3,12 @@ package installer
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/mrgb7/playground/internal/k8s"
+	"github.com/mrgb7/playground/pkg/logger"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -57,7 +57,7 @@ func (h *HelmInstaller) Install(options *InstallOptions) error {
 
 		rel, err := upgrade.RunWithContext(ctx, options.ApplicationName, chart, options.Values)
 		if err != nil {
-			log.Printf("Error upgrading chart: %v\n", err)
+			logger.Errorf("Error upgrading chart: %v", err)
 			return fmt.Errorf("failed to upgrade chart: %w", err)
 		}
 
@@ -78,7 +78,7 @@ func (h *HelmInstaller) Install(options *InstallOptions) error {
 
 		rel, err := install.RunWithContext(ctx, chart, options.Values)
 		if err != nil {
-			log.Printf("Error installing chart: %v\n", err)
+			logger.Errorf("Error installing chart: %v", err)
 			return fmt.Errorf("failed to install chart: %w", err)
 		}
 
@@ -105,18 +105,23 @@ func (h *HelmInstaller) UnInstall(options *InstallOptions) error {
 
 	_, err = uninstall.Run(options.ApplicationName)
 	if err != nil {
-		log.Printf("Error uninstalling chart: %v\n", err)
+		logger.Errorf("Error uninstalling chart: %v", err)
 		return fmt.Errorf("failed to uninstall chart: %w", err)
 	}
 
 	k8sClient, err := k8s.NewK8sClient(h.KubeConfig)
 	if err != nil {
-		log.Printf("Failed to create k8s client: %v\n", err)
+		logger.Errorf("Failed to create k8s client: %v", err)
 		return nil
 	}
 
 	if err := k8sClient.DeleteNamespace(options.Namespace); err != nil {
-		log.Printf("Failed to cleanup namespace: %v\n", err)
+		logger.Errorf("Failed to cleanup namespace: %v", err)
+	}
+	if options.CRDsGroupVersion != "" {
+		if err := k8sClient.DeleteCRDsGroup(options.CRDsGroupVersion); err != nil {
+			logger.Warnf("Failed to delete CRDs: %v", err)
+		}
 	}
 
 	return nil
@@ -131,7 +136,13 @@ func (h *HelmInstaller) createHelmActionConfig(namespace string) (*action.Config
 
 	settings.KubeConfig = tmpPath
 	actionConfig := new(action.Configuration)
-	if err := actionConfig.Init(settings.RESTClientGetter(), namespace, os.Getenv("HELM_DRIVER"), log.Printf); err != nil {
+
+	// Create a wrapper function to use our logger with Helm's Init method
+	logFunc := func(format string, v ...interface{}) {
+		logger.Debugf(format, v...)
+	}
+
+	if err := actionConfig.Init(settings.RESTClientGetter(), namespace, os.Getenv("HELM_DRIVER"), logFunc); err != nil {
 		return nil, fmt.Errorf("failed to initialize helm action config: %w", err)
 	}
 
@@ -154,7 +165,7 @@ func (h *HelmInstaller) downloadAndLoadChart(options *InstallOptions) (*chart.Ch
 		return nil, fmt.Errorf("failed to locate chart %s: %w", *options.ChartName, err)
 	}
 
-	log.Printf("Chart found at: %s\n", chartPath)
+	logger.Infof("Chart found at: %s", chartPath)
 
 	loadedChart, err := loader.Load(chartPath)
 	if err != nil {
@@ -169,7 +180,7 @@ func (h *HelmInstaller) downloadAndLoadChart(options *InstallOptions) (*chart.Ch
 		return nil, fmt.Errorf("chart has no version")
 	}
 
-	log.Printf("Successfully loaded chart: %s version %s\n", loadedChart.Metadata.Name, loadedChart.Metadata.Version)
+	logger.Infof("Successfully loaded chart: %s version %s", loadedChart.Metadata.Name, loadedChart.Metadata.Version)
 
 	return loadedChart, nil
 }

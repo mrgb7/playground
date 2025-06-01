@@ -31,7 +31,6 @@ func (b *BasePlugin) UnifiedInstall(kubeConfig, clusterName string, ensure ...bo
 		return fmt.Errorf("failed to create installer: %w", err)
 	}
 
-	// Determine installer type for tracking
 	var installerType string
 	switch inst.(type) {
 	case *installer.ArgoInstaller:
@@ -44,7 +43,6 @@ func (b *BasePlugin) UnifiedInstall(kubeConfig, clusterName string, ensure ...bo
 
 	opts := newInstallOptions(b.plugin, kubeConfig)
 
-	// Install the plugin
 	err = inst.Install(opts)
 	if err != nil {
 		return err
@@ -90,16 +88,18 @@ func (b *BasePlugin) UnifiedUninstall(kubeConfig, clusterName string, ensure ...
 }
 
 func newInstallOptions(plugin Plugin, kubeConfig string) *installer.InstallOptions {
-	chartName := plugin.GetChartName()
-	version := plugin.GetVersion()
+	opt := plugin.GetOptions()
+	chartName := opt.ChartName
+	version := opt.Version
 	return &installer.InstallOptions{
-		Namespace:       plugin.GetNamespace(),
-		Values:          plugin.GetChartValues(),
-		ChartName:       &chartName,
-		RepoURL:         plugin.GetRepository(),
-		ApplicationName: plugin.GetName(),
-		Version:         version,
-		KubeConfig:      kubeConfig,
-		RepoName:        plugin.GetRepoName(),
+		Namespace:        *opt.Namespace,
+		Values:           opt.ChartValues,
+		ChartName:        chartName,
+		RepoURL:          *opt.Repository,
+		ApplicationName:  plugin.GetName(),
+		Version:          *version,
+		KubeConfig:       kubeConfig,
+		RepoName:         *opt.RepoName,
+		CRDsGroupVersion: opt.CRDsGroupVersion,
 	}
 }

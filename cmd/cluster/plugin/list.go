@@ -7,34 +7,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func getPluginStatusSilently(plugin plugins.Plugin) string {
-	logger.SetSilentMode(true)
-	status := plugin.Status()
-	logger.SetSilentMode(false)
-	return status
-}
-
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all available plugins",
 	Long:  `List all available plugins for the cluster`,
 	Run: func(cmd *cobra.Command, args []string) {
 		clusterName, _ := cmd.Flags().GetString("cluster-name")
-		if clusterName == "" {
-			logger.Infoln("Basic plugins:")
-
-			for _, plugin := range plugins.List {
-				status := getPluginStatusSilently(plugin)
-				logger.Infoln("  %s: %s", plugin.GetName(), status)
-			}
-
-			logger.Infoln("")
-			logger.Infoln("For cluster-specific plugins, specify --cluster-name")
-			return
-		}
 
 		c := types.Cluster{
 			Name: clusterName,
+		}
+
+		if !c.IsExists() {
+			logger.Errorln("Cluster '%s' does not exist. Please create it first.", clusterName)
+			return
 		}
 
 		ip := c.GetMasterIP()
@@ -52,7 +38,7 @@ var listCmd = &cobra.Command{
 		logger.Infoln("Available plugins for cluster '%s':", clusterName)
 
 		for _, plugin := range pluginsList {
-			status := getPluginStatusSilently(plugin)
+			status := plugin.Status()
 			logger.Infoln("  %s: %s", plugin.GetName(), status)
 		}
 	},

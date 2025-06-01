@@ -19,21 +19,23 @@ func TestIngressPluginInterface(t *testing.T) {
 		t.Errorf("Expected plugin name '%s', got '%s'", IngressName, plugin.GetName())
 	}
 
-	if plugin.GetNamespace() != IngressNamespace {
-		t.Errorf("Expected namespace '%s', got '%s'", IngressNamespace, plugin.GetNamespace())
+	// Test plugin options
+	options := plugin.GetOptions()
+	if options.Namespace != nil && *options.Namespace != IngressNamespace {
+		t.Errorf("Expected namespace '%s', got '%s'", IngressNamespace, *options.Namespace)
 	}
 
-	if plugin.GetVersion() != IngressVersion {
-		t.Errorf("Expected version '%s', got '%s'", IngressVersion, plugin.GetVersion())
+	if options.Version != nil && *options.Version != IngressVersion {
+		t.Errorf("Expected version '%s', got '%s'", IngressVersion, *options.Version)
 	}
 
 	// Test that chart-related methods return empty values (since this plugin doesn't use Helm)
-	if plugin.GetChartName() != "" {
-		t.Errorf("Expected empty chart name, got '%s'", plugin.GetChartName())
+	if options.ChartName != nil && *options.ChartName != "" {
+		t.Errorf("Expected empty chart name, got '%s'", *options.ChartName)
 	}
 
-	if plugin.GetRepository() != "" {
-		t.Errorf("Expected empty repository, got '%s'", plugin.GetRepository())
+	if options.Repository != nil && *options.Repository != "" {
+		t.Errorf("Expected empty repository, got '%s'", *options.Repository)
 	}
 
 	// Test that it implements the Plugin interface

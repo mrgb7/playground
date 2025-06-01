@@ -14,8 +14,8 @@ type DependencyPlugin interface {
 
 type GraphNode struct {
 	Plugin       DependencyPlugin
-	Dependencies []string // plugins this node depends on
-	Dependents   []string // plugins that depend on this node
+	Dependencies []string
+	Dependents   []string
 }
 
 type DependencyGraph struct {
@@ -205,7 +205,7 @@ func (dg *DependencyGraph) collectDependencies(pluginName string, collected map[
 
 func (dg *DependencyGraph) collectDependenciesWithStack(pluginName string, collected, stack map[string]bool) error {
 	if collected[pluginName] {
-		return nil // Already processed
+		return nil
 	}
 
 	if stack[pluginName] {
@@ -230,17 +230,16 @@ func (dg *DependencyGraph) collectDependenciesWithStack(pluginName string, colle
 	return nil
 }
 
-// collectDependents recursively collects all dependents for a plugin
 func (dg *DependencyGraph) collectDependents(pluginName string, collected map[string]bool) error {
 	if collected[pluginName] {
-		return nil // Already processed
+		return nil
 	}
 
 	collected[pluginName] = true
 
 	node := dg.nodes[pluginName]
 	if node == nil {
-		return nil // Plugin not in graph
+		return nil
 	}
 
 	for _, dependent := range node.Dependents {
@@ -253,7 +252,6 @@ func (dg *DependencyGraph) collectDependents(pluginName string, collected map[st
 }
 
 func (dg *DependencyGraph) topologicalSort(plugins []string) ([]string, error) {
-	// Calculate in-degree for each plugin
 	inDegree := make(map[string]int)
 	for _, plugin := range plugins {
 		inDegree[plugin] = 0
@@ -360,7 +358,6 @@ func (dv *DependencyValidator) ValidateInstallation(targetPlugins []string, inst
 		installedSet[p] = true
 	}
 
-	// Filter out already installed plugins and validate remaining ones
 	needsInstallation := make([]string, 0)
 	for _, plugin := range installOrder {
 		if !installedSet[plugin] {
@@ -368,7 +365,6 @@ func (dv *DependencyValidator) ValidateInstallation(targetPlugins []string, inst
 				return nil, err
 			}
 			needsInstallation = append(needsInstallation, plugin)
-			// Add to installed set for next validation
 			installedPlugins = append(installedPlugins, plugin)
 			installedSet[plugin] = true
 		}
@@ -398,7 +394,6 @@ func (dv *DependencyValidator) ValidateUninstallation(targetPlugins []string, in
 				return nil, err
 			}
 			needsUninstallation = append(needsUninstallation, plugin)
-			// Remove from installed set for next validation
 			newInstalled := make([]string, 0)
 			for _, p := range installedPlugins {
 				if p != plugin {

@@ -14,14 +14,12 @@ var (
 	errorColor   = color.New(color.FgRed)
 	debugColor   = color.New(color.FgCyan)
 	successColor = color.New(color.FgGreen, color.Bold)
+	enableDebug  = false // Flag to enable/disable debug messages
 
-	// Silent mode flag to suppress error output
-	silentMode = false
 )
 
-// SetSilentMode enables or disables silent mode for error logging
-func SetSilentMode(silent bool) {
-	silentMode = silent
+func init() {
+	enableDebug = os.Getenv("LOG_LEVEL") == "debug"
 }
 
 // Info prints info message with format
@@ -56,9 +54,7 @@ func Warnln(format string, args ...interface{}) {
 
 // Error prints error message with format (suppressed in silent mode)
 func Error(format string, args ...interface{}) {
-	if !silentMode {
-		_, _ = errorColor.Printf(format+"\n", args...)
-	}
+	_, _ = errorColor.Printf(format+"\n", args...)
 }
 
 // Errorf is an alias for Error for consistency
@@ -68,26 +64,26 @@ func Errorf(format string, args ...interface{}) {
 
 // Errorln prints error message with newline (suppressed in silent mode)
 func Errorln(format string, args ...interface{}) {
-	if !silentMode {
-		_, _ = errorColor.Printf(format+"\n", args...)
-	}
+	_, _ = errorColor.Printf(format+"\n", args...)
 }
 
 // Debug prints debug message with format (suppressed in silent mode)
 func Debug(format string, args ...interface{}) {
-	if !silentMode {
+	if enableDebug {
 		_, _ = debugColor.Printf(format+"\n", args...)
 	}
 }
 
 // Debugf is an alias for Debug for consistency
 func Debugf(format string, args ...interface{}) {
-	Debug(format, args...)
+	if enableDebug {
+		Debug(format, args...)
+	}
 }
 
 // Debugln prints debug message with newline (suppressed in silent mode)
 func Debugln(format string, args ...interface{}) {
-	if !silentMode {
+	if enableDebug {
 		_, _ = debugColor.Printf(format+"\n", args...)
 	}
 }

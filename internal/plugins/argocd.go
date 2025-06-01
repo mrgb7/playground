@@ -17,9 +17,10 @@ import (
 type Argocd struct {
 	KubeConfig string
 	*BasePlugin
+	Tracker *InstallerTracker
 }
 
-const (
+var (
 	ArgocdRepoURL       = "https://argoproj.github.io/argo-helm"
 	ArgocdChartName     = "argo-cd"
 	ArgocdChartVersion  = "8.0.0"
@@ -28,21 +29,41 @@ const (
 	ArgoRepoName        = "argo"
 	ArgocdValuesFileURL = "https://raw.githubusercontent.com/mrgb7/core-infrastructure/" +
 		"refs/heads/main/argocd/argocd-values-local.yaml"
+)
 
+const (
 	HTTPTimeoutSeconds = 30
 	MaxResponseSize    = 10 * 1024 * 1024
 )
 
-func NewArgocd(kubeConfig string) *Argocd {
+func NewArgocd(kubeConfig string) (*Argocd, error) {
+	t, err := NewInstallerTracker(kubeConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create installer tracker: %w", err)
+	}
 	argo := &Argocd{
 		KubeConfig: kubeConfig,
+		Tracker:    t,
 	}
 	argo.BasePlugin = NewBasePlugin(kubeConfig, argo)
-	return argo
+	return argo, nil
 }
 
 func (a *Argocd) GetName() string {
 	return "argocd"
+}
+
+func (a *Argocd) GetOptions() PluginOptions {
+	return PluginOptions{
+		Version:          &ArgocdChartVersion,
+		Namespace:        &ArgocdNamespace,
+		ChartName:        &ArgocdChartName,
+		RepoName:         &ArgoRepoName,
+		Repository:       &ArgocdRepoURL,
+		releaseName:      &ArgocdReleaseName,
+		ChartValues:      a.getChartValues(),
+		CRDsGroupVersion: "argoproj.io",
+	}
 }
 
 func (a *Argocd) Install(kubeConfig, clusterName string, ensure ...bool) error {
@@ -50,7 +71,20 @@ func (a *Argocd) Install(kubeConfig, clusterName string, ensure ...bool) error {
 }
 
 func (a *Argocd) Uninstall(kubeConfig, clusterName string, ensure ...bool) error {
+	if err := a.checkUsage(); err != nil {
+		return err
+	}
+
 	return a.UnifiedUninstall(kubeConfig, clusterName, ensure...)
+}
+
+func (a *Argocd) checkUsage() error {
+	plugins, _ := a.Tracker.GetAllPluginByInstaller(a.GetName())
+
+	if len(plugins) > 0 {
+		return fmt.Errorf("you cannot uninstall argocd because it is used by other plugins: %v", plugins)
+	}
+	return nil
 }
 
 func (a *Argocd) getValuesContent() (map[string]interface{}, error) {
@@ -104,7 +138,7 @@ func (a *Argocd) getValuesContent() (map[string]interface{}, error) {
 func (a *Argocd) Status() string {
 	c, err := k8s.NewK8sClient(a.KubeConfig)
 	if err != nil {
-		logger.Errorln("failed to create k8s client: %v", err)
+		logger.Debugf("failed to create k8s client: %v", err)
 		return StatusUnknown
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -114,26 +148,10 @@ func (a *Argocd) Status() string {
 		logger.Debugf("failed to get argocd namespace: %v", err)
 		return StatusNotInstalled
 	}
-	return "argocd is running"
+	return StatusRunning
 }
 
-func (a *Argocd) GetNamespace() string {
-	return ArgocdNamespace
-}
-
-func (a *Argocd) GetVersion() string {
-	return ArgocdChartVersion
-}
-
-func (a *Argocd) GetChartName() string {
-	return ArgocdChartName
-}
-
-func (a *Argocd) GetRepository() string {
-	return ArgocdRepoURL
-}
-
-func (a *Argocd) GetChartValues() map[string]interface{} {
+func (a *Argocd) getChartValues() map[string]interface{} {
 	val, err := a.getValuesContent()
 	if err != nil {
 		logger.Errorln("failed to get values content: %v", err)
@@ -142,11 +160,6 @@ func (a *Argocd) GetChartValues() map[string]interface{} {
 	return val
 }
 
-func (a *Argocd) GetRepoName() string {
-	return ArgoRepoName
-}
-
-// GetDependencies returns the list of plugins that ArgoCD depends on
 func (a *Argocd) GetDependencies() []string {
-	return []string{} // ArgoCD has no dependencies
+	return []string{}
 }
