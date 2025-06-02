@@ -274,6 +274,22 @@ else
     echo "❌ Victoria Metrics Operator Deployment not found."
 fi
 
+echo "Checking Victoria Metrics Single deployment..."
+kubectl get deployment -n monitoring vmsingle-observability-victoria-metrics-k8s-stack > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+    echo "✅ Victoria Metrics Single Deployment found."
+else
+    echo "❌ Victoria Metrics Single Deployment not found."
+fi
+
+echo "Checking Victoria Metrics Agent deployment..."
+kubectl get deployment -n monitoring vmagent-observability-victoria-metrics-k8s-stack > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+    echo "✅ Victoria Metrics Agent Deployment found."
+else
+    echo "❌ Victoria Metrics Agent Deployment not found."
+fi
+
 # Wait for core observability components to be ready
 echo "Waiting for Grafana to be ready..."
 if kubectl rollout status -n monitoring deployment/observability-grafana --timeout=300s > /dev/null 2>&1; then
@@ -301,6 +317,20 @@ if kubectl rollout status -n monitoring deployment/observability-victoria-metric
     echo "✅ Victoria Metrics Operator is ready."
 else
     echo "⚠️  Victoria Metrics Operator rollout status check failed. Continuing with other checks..."
+fi
+
+echo "Waiting for Victoria Metrics Single to be ready..."
+if kubectl rollout status -n monitoring deployment/vmsingle-observability-victoria-metrics-k8s-stack --timeout=300s > /dev/null 2>&1; then
+    echo "✅ Victoria Metrics Single is ready."
+else
+    echo "⚠️  Victoria Metrics Single rollout status check failed. Continuing with other checks..."
+fi
+
+echo "Waiting for Victoria Metrics Agent to be ready..."
+if kubectl rollout status -n monitoring deployment/vmagent-observability-victoria-metrics-k8s-stack --timeout=300s > /dev/null 2>&1; then
+    echo "✅ Victoria Metrics Agent is ready."
+else
+    echo "⚠️  Victoria Metrics Agent rollout status check failed. Continuing with other checks..."
 fi
 
 # Check if observability components are running

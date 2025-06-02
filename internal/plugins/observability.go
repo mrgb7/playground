@@ -90,6 +90,8 @@ func (o *Observability) getChartValues() map[string]interface{} {
 
 func (o *Observability) getLightweightChartValues() map[string]interface{} {
 	return map[string]interface{}{
+		// Override the full name to keep resource names short
+		"fullnameOverride": "obs",
 		// Victoria Metrics configuration - minimal setup
 		"vmsingle": map[string]interface{}{
 			"enabled": true,
@@ -179,6 +181,8 @@ func (o *Observability) getLightweightChartValues() map[string]interface{} {
 
 func (o *Observability) getFullChartValues() map[string]interface{} {
 	return map[string]interface{}{
+		// Override the full name to keep resource names short
+		"fullnameOverride": "obs",
 		// Victoria Metrics configuration
 		"vmsingle": map[string]interface{}{
 			"enabled": true,
