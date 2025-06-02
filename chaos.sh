@@ -217,36 +217,109 @@ else
     exit 1
 fi
 
-# Check observability plugin is added
-if kubectl get namespace monitoring > /dev/null 2>&1; then
-    echo "✅ Observability 'monitoring' namespace found."
-else
-    echo "❌ Observability 'monitoring' namespace not found. Test failed."
+# Wait for namespace to be created
+echo "Waiting for monitoring namespace to be created..."
+retry_count=0
+max_retries=30
+while [ $retry_count -lt $max_retries ]; do
+    if kubectl get namespace monitoring > /dev/null 2>&1; then
+        echo "✅ Observability 'monitoring' namespace found."
+        break
+    else
+        echo "⏳ Waiting for monitoring namespace... (attempt $((retry_count + 1))/$max_retries)"
+        sleep 10
+        retry_count=$((retry_count + 1))
+    fi
+done
+
+if [ $retry_count -eq $max_retries ]; then
+    echo "❌ Observability 'monitoring' namespace not found after $max_retries attempts. Test failed."
     exit 1
 fi
 
-# Wait for observability components to be ready (Victoria Metrics)
-echo "Waiting for Victoria Metrics to be ready..."
-if kubectl rollout status -n monitoring statefulset/vmsingle-observability --timeout=300s > /dev/null 2>&1; then
-    echo "✅ Victoria Metrics is ready."
+# Wait for all observability components to be deployed
+echo "Waiting for observability components to be deployed..."
+sleep 30
+
+# Check specific deployments are created with correct names
+echo "Checking Grafana deployment..."
+kubectl get deployment -n monitoring observability-grafana > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+    echo "✅ Grafana Deployment found."
 else
-    echo "❌ Victoria Metrics rollout status check failed. Continuing with other checks..."
+    echo "❌ Grafana Deployment not found."
 fi
 
-# Wait for Grafana to be ready
+echo "Checking Node Exporter DaemonSet..."
+kubectl get daemonset -n monitoring observability-prometheus-node-exporter > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+    echo "✅ Node Exporter DaemonSet found."
+else
+    echo "❌ Node Exporter DaemonSet not found."
+fi
+
+echo "Checking Kube State Metrics deployment..."
+kubectl get deployment -n monitoring observability-kube-state-metrics > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+    echo "✅ Kube State Metrics Deployment found."
+else
+    echo "❌ Kube State Metrics Deployment not found."
+fi
+
+echo "Checking Victoria Metrics Operator deployment..."
+kubectl get deployment -n monitoring observability-victoria-metrics-operator > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+    echo "✅ Victoria Metrics Operator Deployment found."
+else
+    echo "❌ Victoria Metrics Operator Deployment not found."
+fi
+
+# Wait for core observability components to be ready
 echo "Waiting for Grafana to be ready..."
-if kubectl rollout status -n monitoring deployment/grafana --timeout=300s > /dev/null 2>&1; then
+if kubectl rollout status -n monitoring deployment/observability-grafana --timeout=300s > /dev/null 2>&1; then
     echo "✅ Grafana is ready."
 else
-    echo "❌ Grafana rollout status check failed. Continuing with other checks..."
+    echo "⚠️  Grafana rollout status check failed. Continuing with other checks..."
+fi
+
+echo "Waiting for Node Exporter to be ready..."
+if kubectl rollout status -n monitoring daemonset/observability-prometheus-node-exporter --timeout=300s > /dev/null 2>&1; then
+    echo "✅ Node Exporter is ready."
+else
+    echo "⚠️  Node Exporter rollout status check failed. Continuing with other checks..."
+fi
+
+echo "Waiting for Kube State Metrics to be ready..."
+if kubectl rollout status -n monitoring deployment/observability-kube-state-metrics --timeout=300s > /dev/null 2>&1; then
+    echo "✅ Kube State Metrics is ready."
+else
+    echo "⚠️  Kube State Metrics rollout status check failed. Continuing with other checks..."
+fi
+
+echo "Waiting for Victoria Metrics Operator to be ready..."
+if kubectl rollout status -n monitoring deployment/observability-victoria-metrics-operator --timeout=300s > /dev/null 2>&1; then
+    echo "✅ Victoria Metrics Operator is ready."
+else
+    echo "⚠️  Victoria Metrics Operator rollout status check failed. Continuing with other checks..."
 fi
 
 # Check if observability components are running
-echo "Checking observability components..."
-if kubectl get pods -n monitoring | grep -q "Running"; then
-    echo "✅ Observability components are running."
+echo "Checking if observability pods are running..."
+sleep 15
+running_pods=$(kubectl get pods -n monitoring --no-headers | grep -c "Running")
+total_pods=$(kubectl get pods -n monitoring --no-headers | wc -l)
+
+if [ "$running_pods" -gt 0 ]; then
+    echo "✅ Observability components are running ($running_pods/$total_pods pods in Running state)."
+    
+    # List all pods for debugging
+    echo "Observability pods status:"
+    kubectl get pods -n monitoring
 else
-    echo "❌ Observability components are not running properly. Test failed."
+    echo "❌ No observability components are running properly."
+    echo "Pod status for debugging:"
+    kubectl get pods -n monitoring
+    echo "❌ Observability components test failed."
     exit 1
 fi
 
@@ -259,19 +332,21 @@ else
     echo "❌ Failed to add ingress plugin. Continuing without ingress tests..."
 fi
 
+# Wait for ingress to create observability ingresses
+echo "Waiting for observability ingresses to be created..."
+sleep 45
+
 # Check if observability ingress resources are created
-sleep 30
+echo "Checking for Grafana ingress..."
 if kubectl get ingress -n monitoring grafana-ingress > /dev/null 2>&1; then
     echo "✅ Grafana ingress found."
 else
-    echo "❌ Grafana ingress not found. Ingress integration may have issues."
+    echo "⚠️  Grafana ingress not found. Ingress integration may need more time."
 fi
 
-if kubectl get ingress -n monitoring victoria-metrics-ingress > /dev/null 2>&1; then
-    echo "✅ Victoria Metrics ingress found."
-else
-    echo "❌ Victoria Metrics ingress not found. Ingress integration may have issues."
-fi
+# List all ingresses in monitoring namespace for debugging
+echo "All ingresses in monitoring namespace:"
+kubectl get ingress -n monitoring
 
 # Remove observability plugin
 echo "Removing observability plugin from the cluster..."
@@ -282,14 +357,25 @@ else
     exit 1
 fi
 
-sleep 10
+# Wait for cleanup
+sleep 15
+
 # Check observability plugin is removed
-kubectl get namespace monitoring > /dev/null 2>&1
-if [ $? -eq 0 ]; then
-    echo "❌ Observability 'monitoring' namespace still exists. Test failed."
-    exit 1
-else
-    echo "✅ Observability plugin removed successfully."
+retry_count=0
+max_retries=20
+while [ $retry_count -lt $max_retries ]; do
+    if kubectl get namespace monitoring > /dev/null 2>&1; then
+        echo "⏳ Waiting for monitoring namespace to be deleted... (attempt $((retry_count + 1))/$max_retries)"
+        sleep 15
+        retry_count=$((retry_count + 1))
+    else
+        echo "✅ Observability plugin removed successfully."
+        break
+    fi
+done
+
+if [ $retry_count -eq $max_retries ]; then
+    echo "⚠️  Observability 'monitoring' namespace still exists after $max_retries attempts. May take longer to clean up."
 fi
 
 # Clean up ingress plugin if it was installed

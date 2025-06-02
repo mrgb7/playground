@@ -15,10 +15,10 @@ type Observability struct {
 }
 
 var (
-	ObservabilityRepoURL      = "https://victoria-metrics.github.io/helm-charts/"
+	ObservabilityRepoURL      = "https://victoriametrics.github.io/helm-charts/"
 	ObservabilityChartName    = "victoria-metrics-k8s-stack"
-	ObservabilityChartVersion = "0.27.3"
-	ObservabilityReleaseName  = "observability"
+	ObservabilityChartVersion = "0.50.1"
+	ObservabilityReleaseName  = "obs"
 	ObservabilityNamespace    = "monitoring"
 	ObservabilityRepoName     = "victoria-metrics"
 )
