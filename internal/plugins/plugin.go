@@ -39,6 +39,11 @@ func CreatePluginsList(kubeConfig, masterClusterIP, clusterName string) ([]Plugi
 		return nil, err
 	}
 
+	observability, err := NewObservability(kubeConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	return []Plugin{
 		argocd,
 		NewCertManager(kubeConfig),
@@ -46,5 +51,6 @@ func CreatePluginsList(kubeConfig, masterClusterIP, clusterName string) ([]Plugi
 		NewNginx(kubeConfig),
 		ingress,
 		tls,
+		observability,
 	}, nil
 }
