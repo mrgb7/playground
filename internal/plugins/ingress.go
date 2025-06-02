@@ -23,11 +23,11 @@ var (
 )
 
 const (
-	ArgoCDPort = 80
-	GrafanaPort = 3000
+	ArgoCDPort          = 80
+	GrafanaPort         = 3000
 	VictoriaMetricsPort = 8428
-	VictoriaLogsPort = 9428
-	JaegerPort = 16686
+	VictoriaLogsPort    = 9428
+	JaegerPort          = 16686
 )
 
 type Ingress struct {
@@ -380,7 +380,7 @@ func (i *Ingress) createNewServiceIngress(ingressName, hostname, namespace, serv
 func (i *Ingress) removeObservabilityIngress() error {
 	observabilityIngresses := []string{
 		"grafana-ingress",
-		"victoria-metrics-ingress", 
+		"victoria-metrics-ingress",
 		"victoria-logs-ingress",
 		"jaeger-ingress",
 	}
@@ -632,4 +632,3 @@ func (i *Ingress) createNewArgoCDIngress(hostname string, isTLSAvailable bool) e
 func (i *Ingress) GetDependencies() []string {
 	return []string{"nginx-ingress", "load-balancer"} // ingress depends on nginx-ingress and load-balancer
 }
-

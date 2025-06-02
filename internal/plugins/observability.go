@@ -11,6 +11,7 @@ import (
 type Observability struct {
 	KubeConfig string
 	*BasePlugin
+	LightweightMode bool // Support for lightweight vs full stack
 }
 
 var (
@@ -24,7 +25,8 @@ var (
 
 func NewObservability(kubeConfig string) (*Observability, error) {
 	obs := &Observability{
-		KubeConfig: kubeConfig,
+		KubeConfig:      kubeConfig,
+		LightweightMode: false, // Default to full stack
 	}
 	obs.BasePlugin = NewBasePlugin(kubeConfig, obs)
 	return obs, nil
@@ -75,7 +77,107 @@ func (o *Observability) GetDependencies() []string {
 	return []string{}
 }
 
+func (o *Observability) SetLightweightMode(lightweight bool) {
+	o.LightweightMode = lightweight
+}
+
 func (o *Observability) getChartValues() map[string]interface{} {
+	if o.LightweightMode {
+		return o.getLightweightChartValues()
+	}
+	return o.getFullChartValues()
+}
+
+func (o *Observability) getLightweightChartValues() map[string]interface{} {
+	return map[string]interface{}{
+		// Victoria Metrics configuration - minimal setup
+		"vmsingle": map[string]interface{}{
+			"enabled": true,
+			"spec": map[string]interface{}{
+				"retentionPeriod": "7d", // Shorter retention for lightweight
+				"storage": map[string]interface{}{
+					"storageClassName": "local-path",
+					"accessModes":      []string{"ReadWriteOnce"},
+					"size":             "5Gi", // Smaller storage
+				},
+			},
+		},
+		// Basic monitoring
+		"nodeExporter": map[string]interface{}{
+			"enabled": true,
+		},
+		"kubeStateMetrics": map[string]interface{}{
+			"enabled": true,
+		},
+		// Grafana with basic configuration
+		"grafana": map[string]interface{}{
+			"enabled": true,
+			"spec": map[string]interface{}{
+				"storage": map[string]interface{}{
+					"storageClassName": "local-path",
+					"accessModes":      []string{"ReadWriteOnce"},
+					"size":             "2Gi", // Smaller storage
+				},
+			},
+			"sidecar": map[string]interface{}{
+				"datasources": map[string]interface{}{
+					"enabled": true,
+				},
+				"dashboards": map[string]interface{}{
+					"enabled":         true,
+					"label":           "grafana_dashboard",
+					"searchNamespace": "ALL",
+				},
+			},
+		},
+		// Disable heavy components for lightweight mode
+		"vlogs": map[string]interface{}{
+			"enabled": false,
+		},
+		"fluent-bit": map[string]interface{}{
+			"enabled": false,
+		},
+		"alertmanager": map[string]interface{}{
+			"enabled": false,
+		},
+		"vmalert": map[string]interface{}{
+			"enabled": false,
+		},
+		"jaeger": map[string]interface{}{
+			"enabled": false,
+		},
+		"opentelemetry-collector": map[string]interface{}{
+			"enabled": false,
+		},
+		// Essential service monitors
+		"defaultRules": map[string]interface{}{
+			"enabled": true,
+			"create":  true,
+			"rules": map[string]interface{}{
+				"etcd":                        true,
+				"general":                     true,
+				"k8s":                         true,
+				"kubeApiserver":               true,
+				"kubeApiserverBurnrate":       true,
+				"kubePrometheusGeneral":       true,
+				"kubePrometheusNodeRecording": true,
+				"kubernetesApps":              true,
+				"kubernetesResources":         true,
+				"kubernetesStorage":           true,
+				"kubernetesSystem":            true,
+				"node":                        true,
+				"nodeExporter":                true,
+				"prometheus":                  true,
+				"prometheusOperator":          true,
+			},
+		},
+		"prometheus": map[string]interface{}{
+			"enabled": false,
+		},
+	}
+}
+
+func (o *Observability) getFullChartValues() map[string]interface{} {
 	return map[string]interface{}{
 		// Victoria Metrics configuration
 		"vmsingle": map[string]interface{}{
@@ -97,7 +199,7 @@ func (o *Observability) getChartValues() map[string]interface{} {
 		"kubeStateMetrics": map[string]interface{}{
 			"enabled": true,
 		},
-		// Grafana configuration
+		// Grafana configuration with comprehensive dashboards
 		"grafana": map[string]interface{}{
 			"enabled": true,
 			"spec": map[string]interface{}{
@@ -109,10 +211,56 @@ func (o *Observability) getChartValues() map[string]interface{} {
 			},
 			"sidecar": map[string]interface{}{
 				"datasources": map[string]interface{}{
-					"enabled": true,
+					"enabled":                  true,
+					"defaultDatasourceEnabled": true,
 				},
 				"dashboards": map[string]interface{}{
-					"enabled": true,
+					"enabled":         true,
+					"label":           "grafana_dashboard",
+					"searchNamespace": "ALL",
+					"provider": map[string]interface{}{
+						"foldersFromFilesStructure": true,
+					},
+				},
+			},
+			"dashboardProviders": map[string]interface{}{
+				"dashboardproviders.yaml": map[string]interface{}{
+					"apiVersion": 1,
+					"providers": []map[string]interface{}{
+						{
+							"name":            "default",
+							"orgId":           1,
+							"folder":          "",
+							"type":            "file",
+							"disableDeletion": false,
+							"editable":        true,
+							"options": map[string]interface{}{
+								"path": "/var/lib/grafana/dashboards/default",
+							},
+						},
+						{
+							"name":            "cluster",
+							"orgId":           1,
+							"folder":          "Cluster",
+							"type":            "file",
+							"disableDeletion": false,
+							"editable":        true,
+							"options": map[string]interface{}{
+								"path": "/var/lib/grafana/dashboards/cluster",
+							},
+						},
+						{
+							"name":            "applications",
+							"orgId":           1,
+							"folder":          "Applications",
+							"type":            "file",
+							"disableDeletion": false,
+							"editable":        true,
+							"options": map[string]interface{}{
+								"path": "/var/lib/grafana/dashboards/applications",
+							},
+						},
+					},
 				},
 			},
 		},
@@ -136,7 +284,7 @@ func (o *Observability) getChartValues() map[string]interface{} {
 			"enabled": true,
 			"spec": map[string]interface{}{
 				"storage": map[string]interface{}{
-					"storageClassName": "local-path",  
+					"storageClassName": "local-path",
 					"accessModes":      []string{"ReadWriteOnce"},
 					"size":             "2Gi",
 				},
@@ -159,13 +307,35 @@ func (o *Observability) getChartValues() map[string]interface{} {
 		"opentelemetry-collector": map[string]interface{}{
 			"enabled": true,
 		},
-		// Default service monitors
+		// Comprehensive service monitors and rules
 		"defaultRules": map[string]interface{}{
 			"enabled": true,
+			"create":  true,
+			"rules": map[string]interface{}{
+				"etcd":                        true,
+				"general":                     true,
+				"k8s":                         true,
+				"kubeApiserver":               true,
+				"kubeApiserverBurnrate":       true,
+				"kubePrometheusGeneral":       true,
+				"kubePrometheusNodeRecording": true,
+				"kubernetesApps":              true,
+				"kubernetesResources":         true,
+				"kubernetesStorage":           true,
+				"kubernetesSystem":            true,
+				"node":                        true,
+				"nodeExporter":                true,
+				"prometheus":                  true,
+				"prometheusOperator":          true,
+			},
 		},
-		// Prometheus compatibility
+		// Custom ServiceMonitors for application metrics
+		"serviceMonitor": map[string]interface{}{
+			"enabled": true,
+		},
+		// Prometheus compatibility disabled - using Victoria Metrics
 		"prometheus": map[string]interface{}{
-			"enabled": false, // Using Victoria Metrics instead
+			"enabled": false,
 		},
 	}
-} 
+}
