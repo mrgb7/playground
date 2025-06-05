@@ -10,6 +10,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"math/big"
+	"net"
 	"os"
 	"runtime"
 	"strings"
@@ -74,6 +75,11 @@ func (t *TLS) Install(kubeConfig, clusterName string, ensure ...bool) error {
 	caCert, caKey, err := t.generateCACertificate()
 	if err != nil {
 		return fmt.Errorf("failed to generate CA certificate: %w", err)
+	}
+
+	// Validate the generated certificate
+	if err := t.validateCACertificate(caCert); err != nil {
+		logger.Warnln("Certificate validation warning: %v", err)
 	}
 
 	if err := t.storeCASecret(caCert, caKey); err != nil {
@@ -160,6 +166,7 @@ func (t *TLS) generateCACertificate() ([]byte, []byte, error) {
 			Locality:      []string{""},
 			StreetAddress: []string{""},
 			PostalCode:    []string{""},
+			CommonName:    fmt.Sprintf("%s Local CA", t.ClusterName),
 		},
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(CertValidityYears, 0, 0),
@@ -167,9 +174,16 @@ func (t *TLS) generateCACertificate() ([]byte, []byte, error) {
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  true,
+		MaxPathLen:            0,
+		MaxPathLenZero:        true,
 		DNSNames: []string{
 			fmt.Sprintf("*.%s.local", t.ClusterName),
 			fmt.Sprintf("%s.local", t.ClusterName),
+			"localhost",
+		},
+		IPAddresses: []net.IP{
+			net.IPv4(127, 0, 0, 1),
+			net.IPv6loopback,
 		},
 	}
 
@@ -313,14 +327,33 @@ func (t *TLS) createClusterIssuer() error {
 
 func (t *TLS) printMacOSInstructions(tempFile *os.File) {
 	logger.Infoln("🍎 macOS Trust Instructions:")
+	logger.Infoln("")
+	logger.Infoln("Method 1 - Command Line (Recommended):")
 	logger.Infoln("sudo security add-trusted-cert -d -r trustRoot \\")
 	logger.Infoln("  -k /Library/Keychains/System.keychain %s", tempFile.Name())
 	logger.Infoln("")
-	logger.Infoln("Alternative (GUI method):")
+	logger.Infoln("Method 2 - GUI Method:")
 	logger.Infoln("1. Double-click the certificate file to open Keychain Access")
-	logger.Infoln("2. Select 'System' keychain")
+	logger.Infoln("2. Select 'System' keychain (important for system-wide trust)")
 	logger.Infoln("3. Find the certificate and double-click it")
-	logger.Infoln("4. Expand 'Trust' and set 'When using this certificate' to 'Always Trust'")
+	logger.Infoln("4. Expand 'Trust' section")
+	logger.Infoln("5. Set 'When using this certificate' to 'Always Trust'")
+	logger.Infoln("6. Set 'Secure Sockets Layer (SSL)' to 'Always Trust'")
+	logger.Infoln("7. Close the dialog and enter your admin password")
+	logger.Infoln("")
+	logger.Infoln("Method 3 - For Chrome Compatibility:")
+	logger.Infoln("1. Open Chrome and go to chrome://settings/security")
+	logger.Infoln("2. Click 'Manage certificates'")
+	logger.Infoln("3. Go to 'Authorities' tab")
+	logger.Infoln("4. Click 'Import' and select the certificate file")
+	logger.Infoln("5. Check 'Trust this certificate for identifying websites'")
+	logger.Infoln("6. Click 'OK'")
+	logger.Infoln("")
+	logger.Infoln("⚠️  Important Notes:")
+	logger.Infoln("- After trusting the certificate, restart Chrome completely")
+	logger.Infoln("- Clear Chrome's cache (chrome://settings/clearBrowserData)")
+	logger.Infoln("- Make sure you're accessing sites with the exact domain: *.%s.local", t.ClusterName)
+	logger.Infoln("- For localhost testing, use: https://localhost or https://127.0.0.1")
 }
 
 func (t *TLS) printLinuxInstructions(tempFile *os.File) {
@@ -393,6 +426,17 @@ func (t *TLS) printTrustInstructions(caCert []byte) error {
 	logger.Infoln("Example ingress annotation: cert-manager.io/cluster-issuer: %s", TLSClusterIssuerName)
 
 	logger.Infoln("")
+	logger.Infoln("🔧 Troubleshooting Chrome Issues:")
+	logger.Infoln("If Chrome still shows certificate warnings after trusting the CA:")
+	logger.Infoln("1. Ensure you've restarted Chrome completely (quit all instances)")
+	logger.Infoln("2. Clear Chrome's SSL cache: chrome://settings/clearBrowserData")
+	logger.Infoln("3. Check certificate is in Chrome: chrome://settings/certificates")
+	logger.Infoln("4. Verify domain matches exactly: https://%s.local or https://subdomain.%s.local", t.ClusterName, t.ClusterName)
+	logger.Infoln("5. Try incognito mode to test without cache")
+	logger.Infoln("6. Check Chrome's certificate viewer: Developer Tools > Security tab")
+	logger.Infoln("7. For local development, ensure your app serves HTTPS on the correct domain")
+
+	logger.Infoln("")
 	logger.Infoln("📋 Certificate content (base64):")
 	certBase64 := base64.StdEncoding.EncodeToString(caCert)
 	logger.Infoln(certBase64)
@@ -406,4 +450,72 @@ func (t *TLS) GetClusterIssuerName() string {
 
 func (t *TLS) GetDependencies() []string {
 	return []string{"cert-manager"} // TLS depends on cert-manager
+}
+
+func (t *TLS) validateCACertificate(certPEM []byte) error {
+	block, _ := pem.Decode(certPEM)
+	if block == nil {
+		return fmt.Errorf("failed to decode PEM certificate")
+	}
+
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return fmt.Errorf("failed to parse certificate: %w", err)
+	}
+
+	logger.Infoln("🔍 Certificate Validation Results:")
+	logger.Infoln("Subject: %s", cert.Subject.String())
+	logger.Infoln("Issuer: %s", cert.Issuer.String())
+	logger.Infoln("Serial Number: %s", cert.SerialNumber.String())
+	logger.Infoln("Valid From: %s", cert.NotBefore.Format(time.RFC3339))
+	logger.Infoln("Valid To: %s", cert.NotAfter.Format(time.RFC3339))
+	logger.Infoln("Is CA: %t", cert.IsCA)
+	
+	logger.Infoln("Key Usage:")
+	if cert.KeyUsage&x509.KeyUsageCertSign != 0 {
+		logger.Infoln("  - Certificate Signing")
+	}
+	if cert.KeyUsage&x509.KeyUsageDigitalSignature != 0 {
+		logger.Infoln("  - Digital Signature")
+	}
+	if cert.KeyUsage&x509.KeyUsageKeyEncipherment != 0 {
+		logger.Infoln("  - Key Encipherment")
+	}
+
+	logger.Infoln("Extended Key Usage:")
+	for _, eku := range cert.ExtKeyUsage {
+		switch eku {
+		case x509.ExtKeyUsageServerAuth:
+			logger.Infoln("  - Server Authentication")
+		case x509.ExtKeyUsageClientAuth:
+			logger.Infoln("  - Client Authentication")
+		default:
+			logger.Infoln("  - Other: %v", eku)
+		}
+	}
+
+	logger.Infoln("DNS Names:")
+	for _, dns := range cert.DNSNames {
+		logger.Infoln("  - %s", dns)
+	}
+
+	logger.Infoln("IP Addresses:")
+	for _, ip := range cert.IPAddresses {
+		logger.Infoln("  - %s", ip.String())
+	}
+
+	// Check for common Chrome compatibility issues
+	if len(cert.DNSNames) == 0 {
+		logger.Warnln("⚠️  WARNING: No DNS names in Subject Alternative Name - Chrome may reject certificates")
+	}
+
+	if !cert.IsCA {
+		logger.Warnln("⚠️  WARNING: Certificate is not marked as CA")
+	}
+
+	if cert.KeyUsage&x509.KeyUsageCertSign == 0 {
+		logger.Warnln("⚠️  WARNING: Certificate cannot sign other certificates")
+	}
+
+	return nil
 }
