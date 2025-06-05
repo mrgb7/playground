@@ -470,7 +470,7 @@ func (t *TLS) validateCACertificate(certPEM []byte) error {
 	logger.Infoln("Valid From: %s", cert.NotBefore.Format(time.RFC3339))
 	logger.Infoln("Valid To: %s", cert.NotAfter.Format(time.RFC3339))
 	logger.Infoln("Is CA: %t", cert.IsCA)
-	
+
 	logger.Infoln("Key Usage:")
 	if cert.KeyUsage&x509.KeyUsageCertSign != 0 {
 		logger.Infoln("  - Certificate Signing")
