@@ -44,9 +44,11 @@ func getAvailableDiskImpl() (float64, error) {
 		return 0, fmt.Errorf("failed to get filesystem stats: %w", err)
 	}
 
-	available := stat.Bavail * uint64(stat.Bsize)
-	availableGB := float64(available) / (1024 * 1024 * 1024)
-	return availableGB, nil
+	blockSize := uint64(stat.Bsize)
+	availableBlocks := uint64(stat.Bavail)
+	available := availableBlocks * blockSize
+
+	return float64(available) / 1024 / 1024 / 1024, nil
 }
 
 func isPortInUseImpl(port int) bool {
@@ -55,7 +57,8 @@ func isPortInUseImpl(port int) bool {
 	if err != nil {
 		return true
 	}
-
-	listener.Close()
+	if err := listener.Close(); err != nil {
+		fmt.Printf("Warning: failed to close listener: %v\n", err)
+	}
 	return false
 }
