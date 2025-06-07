@@ -104,7 +104,7 @@ func TestResourceValidationIntegration(t *testing.T) {
 			mockDisk:       100.0,
 			mockPortInUse:  true,
 			expectValid:    false,
-			expectErrors:   2,
+			expectErrors:   1,
 			expectWarnings: 0,
 		},
 		{
@@ -121,7 +121,7 @@ func TestResourceValidationIntegration(t *testing.T) {
 			mockDisk:       120.0,
 			mockPortInUse:  true,
 			expectValid:    false,
-			expectErrors:   2,
+			expectErrors:   1,
 			expectWarnings: 0,
 		},
 	}

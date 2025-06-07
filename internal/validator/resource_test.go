@@ -30,8 +30,8 @@ func TestCalculateResourceRequirements(t *testing.T) {
 			workerDisk:   "20G",
 			workerCount:  0,
 			expectCPU:    2,
-			expectMemory: 2.4, // 2GB * 1.2 (20% buffer)
-			expectDisk:   24,  // 20GB * 1.2 (20% buffer)
+			expectMemory: 2,
+			expectDisk:   20,
 			expectError:  false,
 		},
 		{
@@ -43,9 +43,9 @@ func TestCalculateResourceRequirements(t *testing.T) {
 			workerMemory: "2G",
 			workerDisk:   "20G",
 			workerCount:  2,
-			expectCPU:    8,   // 4 + (2 * 2)
-			expectMemory: 9.6, // (4 + 2*2)GB * 1.2
-			expectDisk:   96,  // (40 + 2*20)GB * 1.2
+			expectCPU:    8,
+			expectMemory: 8,
+			expectDisk:   80,
 			expectError:  false,
 		},
 		{
@@ -80,8 +80,8 @@ func TestCalculateResourceRequirements(t *testing.T) {
 			workerDisk:   "20G",
 			workerCount:  0,
 			expectCPU:    2,
-			expectMemory: 2.4, // 2GB * 1.2
-			expectDisk:   24,  // 20GB * 1.2
+			expectMemory: 2,
+			expectDisk:   20,
 			expectError:  false,
 		},
 		{
@@ -94,8 +94,8 @@ func TestCalculateResourceRequirements(t *testing.T) {
 			workerDisk:   "20G",
 			workerCount:  0,
 			expectCPU:    2,
-			expectMemory: 2.4,    // 2GB * 1.2
-			expectDisk:   1228.8, // 1024GB * 1.2
+			expectMemory: 2,
+			expectDisk:   1024,
 			expectError:  false,
 		},
 	}

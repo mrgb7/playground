@@ -49,10 +49,6 @@ func CalculateResourceRequirements(masterCPUs int, masterMemory, masterDisk stri
 	totalMemory := masterMemGB + (workerMemGB * float64(workerCount))
 	totalDisk := masterDiskGB + (workerDiskGB * float64(workerCount))
 
-	// Add buffer for system overhead (20%)
-	totalMemory = totalMemory * 1.2
-	totalDisk = totalDisk * 1.2
-
 	return &ResourceRequirements{
 		MinCPU:    totalCPU,
 		MinMemory: totalMemory,
