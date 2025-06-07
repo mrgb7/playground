@@ -5,7 +5,6 @@ import (
 	"net"
 	"os"
 	"runtime"
-	"syscall"
 )
 
 // Platform functions that can be mocked in tests
@@ -23,31 +22,21 @@ func getAvailableCPUImpl() (int, error) {
 func getAvailableMemoryImpl() (float64, error) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-
-	var si syscall.Sysinfo_t
-	if err := syscall.Sysinfo(&si); err != nil {
-		return 0, fmt.Errorf("failed to get system info: %w", err)
-	}
-
-	totalMemory := float64(si.Totalram) / (1024 * 1024 * 1024)
-	return totalMemory, nil
+	return float64(m.Sys) / (1024 * 1024 * 1024), nil
 }
 
 func getAvailableDiskImpl() (float64, error) {
-	var stat syscall.Statfs_t
 	wd, err := os.Getwd()
 	if err != nil {
 		return 0, fmt.Errorf("failed to get working directory: %w", err)
 	}
 
-	if err := syscall.Statfs(wd, &stat); err != nil {
+	info, err := os.Stat(wd)
+	if err != nil {
 		return 0, fmt.Errorf("failed to get filesystem stats: %w", err)
 	}
 
-	blockSize := float64(stat.Bsize)
-	availableBlocks := float64(stat.Bavail)
-	available := availableBlocks * blockSize
-
+	available := float64(info.Size())
 	return available / 1024 / 1024 / 1024, nil
 }
 
