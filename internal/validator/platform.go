@@ -44,11 +44,11 @@ func getAvailableDiskImpl() (float64, error) {
 		return 0, fmt.Errorf("failed to get filesystem stats: %w", err)
 	}
 
-	blockSize := uint64(stat.Bsize)
-	availableBlocks := uint64(stat.Bavail)
+	blockSize := float64(stat.Bsize)
+	availableBlocks := float64(stat.Bavail)
 	available := availableBlocks * blockSize
 
-	return float64(available) / 1024 / 1024 / 1024, nil
+	return available / 1024 / 1024 / 1024, nil
 }
 
 func isPortInUseImpl(port int) bool {
