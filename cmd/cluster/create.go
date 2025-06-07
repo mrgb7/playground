@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/mrgb7/playground/internal/multipass"
+	"github.com/mrgb7/playground/internal/validator"
 	"github.com/mrgb7/playground/pkg/logger"
 	"github.com/mrgb7/playground/types"
 	"github.com/spf13/cobra"
@@ -34,6 +35,8 @@ var (
 	workerCPUs         int
 	workerMemory       string
 	workerDisk         string
+	skipValidation     bool
+	forceCreation      bool
 )
 
 const (
@@ -76,6 +79,68 @@ func createCluster(config *types.ClusterConfig) error {
 
 	if !client.IsMultipassInstalled() {
 		return fmt.Errorf("multipass is not installed or not in PATH")
+	}
+
+	if !skipValidation {
+		requirements, err := validator.CalculateResourceRequirements(
+			config.MasterCPUs, config.MasterMemory, config.MasterDisk,
+			config.WorkerCPUs, config.WorkerMemory, config.WorkerDisk,
+			config.Size-1,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to calculate resource requirements: %w", err)
+		}
+
+		status, err := validator.ValidateResources(requirements)
+		if err != nil {
+			return fmt.Errorf("failed to validate host resources: %w", err)
+		}
+
+		portStatus, err := validator.ValidatePorts()
+		if err != nil {
+			return fmt.Errorf("failed to validate port availability: %w", err)
+		}
+
+		if !status.IsValid || !portStatus.IsValid {
+			fmt.Println("Resource validation failed:")
+			for _, msg := range status.Messages {
+				if strings.Contains(msg, "❌") {
+					fmt.Println(msg)
+				}
+			}
+			for _, msg := range portStatus.Messages {
+				if strings.Contains(msg, "❌") {
+					fmt.Println(msg)
+				}
+			}
+			for _, msg := range status.Messages {
+				if strings.Contains(msg, "⚠️") {
+					fmt.Println(msg)
+				}
+			}
+			for _, msg := range portStatus.Messages {
+				if strings.Contains(msg, "⚠️") {
+					fmt.Println(msg)
+				}
+			}
+			fmt.Println("\nRecommendations:")
+			for _, rec := range status.Recommendations {
+				fmt.Println("-", rec)
+			}
+			for _, rec := range portStatus.Recommendations {
+				fmt.Println("-", rec)
+			}
+			fmt.Println("\nTo bypass this check, use: playground create cluster --skip-host-validation")
+			return fmt.Errorf("insufficient resources for cluster creation")
+		}
+
+		fmt.Println("✅ Host resources validated successfully")
+		for _, msg := range status.Messages {
+			fmt.Println(msg)
+		}
+		for _, msg := range portStatus.Messages {
+			fmt.Println(msg)
+		}
 	}
 
 	cl := types.NewCluster(config.Name)
@@ -300,6 +365,8 @@ func init() {
 	createCmd.Flags().IntVarP(&workerCPUs, "worker-cpus", "w", DefaultWorkerCPUs, "Number of CPUs for each worker node")
 	createCmd.Flags().StringVarP(&workerMemory, "worker-memory", "W", "2G", "Memory for each worker node")
 	createCmd.Flags().StringVarP(&workerDisk, "worker-disk", "d", "20G", "Disk for each worker node")
+	createCmd.Flags().BoolVar(&skipValidation, "skip-host-validation", false, "Skip host resource validation")
+	createCmd.Flags().BoolVar(&forceCreation, "force", false, "Force cluster creation despite resource warnings")
 	if err := createCmd.MarkFlagRequired("name"); err != nil {
 		logger.Errorln("Failed to mark name flag as required: %v", err)
 	}
