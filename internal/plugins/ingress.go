@@ -93,7 +93,7 @@ func (i *Ingress) Uninstall(kubeConfig, clusterName string, ensure ...bool) erro
 
 func (i *Ingress) Status() string {
 	nginx := NewNginx(i.KubeConfig)
-	lb, _ := NewLoadBalancer(i.KubeConfig, "")
+	lb, _ := NewLoadBalancer(i.KubeConfig, "", i.ClusterName)
 
 	nginxStatus := nginx.Status()
 	lbStatus := lb.Status()
@@ -123,7 +123,10 @@ func (i *Ingress) ensureNginxLoadBalancer() error {
 	}
 
 	svc.Spec.Type = v1.ServiceTypeLoadBalancer
-	_, err = i.k8sClient.Clientset.CoreV1().Services(NginxNamespace).Update(ctx, svc, metav1.UpdateOptions{})
+	_, err = i.k8sClient.Clientset.
+		CoreV1().
+		Services(NginxNamespace).
+		Update(ctx, svc, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update nginx service to LoadBalancer: %w", err)
 	}
@@ -177,8 +180,11 @@ func (i *Ingress) removeArgoCDIngress() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	err := i.k8sClient.Clientset.NetworkingV1().Ingresses("argocd").Delete(
-		ctx, "argocd-server", metav1.DeleteOptions{})
+	err := i.k8sClient.
+		Clientset.
+		NetworkingV1().
+		Ingresses("argocd").
+		Delete(ctx, "argocd-server", metav1.DeleteOptions{})
 	if err != nil && !strings.Contains(err.Error(), "not found") {
 		return fmt.Errorf("failed to delete ArgoCD ingress: %w", err)
 	}
@@ -194,8 +200,10 @@ func (i *Ingress) printHostInstructions() error {
 
 	var nginxIP string
 	for retries := 0; retries < 12; retries++ {
-		svc, err := i.k8sClient.Clientset.CoreV1().Services(NginxNamespace).Get(
-			ctx, "nginx-ingress-ingress-nginx-controller", metav1.GetOptions{})
+		svc, err := i.k8sClient.
+			Clientset.
+			CoreV1().
+			Services(NginxNamespace).Get(ctx, "nginx-ingress-ingress-nginx-controller", metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to get nginx service: %w", err)
 		}
@@ -261,7 +269,10 @@ func (i *Ingress) isTLSClusterIssuerAvailable() bool {
 
 	tls := &TLS{}
 	issuerName := tls.GetClusterIssuerName()
-	_, err := i.k8sClient.Dynamic.Resource(gvr).Get(ctx, issuerName, metav1.GetOptions{})
+	_, err := i.k8sClient.
+		Dynamic.
+		Resource(gvr).
+		Get(ctx, issuerName, metav1.GetOptions{})
 	return err == nil
 }
 
@@ -299,7 +310,10 @@ func (i *Ingress) updateExistingArgoCDIngress(
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	_, err := i.k8sClient.Clientset.NetworkingV1().Ingresses("argocd").Update(ctx, existingIngress, metav1.UpdateOptions{})
+	_, err := i.k8sClient.Clientset.
+		NetworkingV1().
+		Ingresses("argocd").
+		Update(ctx, existingIngress, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update existing ArgoCD ingress: %w", err)
 	}
@@ -389,5 +403,5 @@ func (i *Ingress) createNewArgoCDIngress(hostname string, isTLSAvailable bool) e
 }
 
 func (i *Ingress) GetDependencies() []string {
-	return []string{"nginx-ingress", "load-balancer"} // ingress depends on nginx-ingress and load-balancer
+	return []string{"tls", "nginx-ingress", "load-balancer"} // ingress depends on nginx-ingress and load-balancer
 }

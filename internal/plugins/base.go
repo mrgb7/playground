@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/mrgb7/playground/internal/installer"
+	"github.com/mrgb7/playground/internal/k8s"
 	"github.com/mrgb7/playground/pkg/logger"
 )
 
@@ -55,6 +56,16 @@ func (b *BasePlugin) UnifiedInstall(kubeConfig, clusterName string, ensure ...bo
 		recordErr := tracker.RecordPluginInstaller(b.plugin.GetName(), installerType)
 		if recordErr != nil {
 			logger.Warnln("Failed to record installer type for %s: %v", b.plugin.GetName(), recordErr)
+		}
+	}
+	if len(ensure) > 0 && ensure[0] {
+		cl, err := k8s.NewK8sClient(kubeConfig)
+		if err != nil {
+			return fmt.Errorf("failed to create k8s client: %w", err)
+		}
+		opt := b.plugin.GetOptions()
+		if err := <-cl.EnsureApp(*opt.Namespace, b.plugin.GetName()); err != nil {
+			return fmt.Errorf("failed to ensure plugin %s in namespace %s: %w", b.plugin.GetName(), *opt.Namespace, err)
 		}
 	}
 

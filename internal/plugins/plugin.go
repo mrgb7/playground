@@ -20,7 +20,7 @@ type PluginOptions struct {
 }
 
 func CreatePluginsList(kubeConfig, masterClusterIP, clusterName string) ([]Plugin, error) {
-	lb, err := NewLoadBalancer(kubeConfig, masterClusterIP)
+	lb, err := NewLoadBalancer(kubeConfig, masterClusterIP, clusterName)
 	if err != nil {
 		return nil, err
 	}

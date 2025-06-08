@@ -109,7 +109,7 @@ func (a *Argocd) getValuesContent() (map[string]interface{}, error) {
 		return nil, fmt.Errorf("failed to fetch values file: %w", err)
 	}
 	defer func() {
-		if err := resp.Body.Close(); err != nil {
+		if err = resp.Body.Close(); err != nil {
 			logger.Debugln("Failed to close response body: %v", err)
 		}
 	}()
