@@ -15,24 +15,30 @@ func TestArgocd_ValidateOverrideValues(t *testing.T) {
 		{
 			name: "valid override keys",
 			overrides: map[string]interface{}{
-				"admin.password":  "newpass",
-				"server.replicas": 3,
-				"redis.enabled":   true,
+				"admin": map[string]interface{}{
+					"password": "newpass",
+				},
 			},
 			expectError: false,
 		},
 		{
 			name: "invalid override key",
 			overrides: map[string]interface{}{
-				"invalid.key": "value",
+				"invalid": map[string]interface{}{
+					"key": "value",
+				},
 			},
 			expectError: true,
 		},
 		{
 			name: "mixed valid and invalid keys",
 			overrides: map[string]interface{}{
-				"admin.password": "newpass",
-				"invalid.key":    "value",
+				"admin": map[string]interface{}{
+					"password": "newpass",
+				},
+				"invalid": map[string]interface{}{
+					"key": "value",
+				},
 			},
 			expectError: true,
 		},
@@ -40,6 +46,17 @@ func TestArgocd_ValidateOverrideValues(t *testing.T) {
 			name:        "empty overrides",
 			overrides:   map[string]interface{}{},
 			expectError: false,
+		},
+		{
+			name: "deeply nested invalid key",
+			overrides: map[string]interface{}{
+				"server": map[string]interface{}{
+					"invalid": map[string]interface{}{
+						"deep": "value",
+					},
+				},
+			},
+			expectError: true,
 		},
 	}
 
@@ -245,4 +262,80 @@ func valuesEqual(a, b interface{}) bool {
 	}
 
 	return a == b
+}
+
+func TestFlattenKeys(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    map[string]interface{}
+		expected []string
+	}{
+		{
+			name: "simple nested structure",
+			input: map[string]interface{}{
+				"admin": map[string]interface{}{
+					"password": "secret",
+				},
+			},
+			expected: []string{"admin.password"},
+		},
+		{
+			name: "multiple nested keys",
+			input: map[string]interface{}{
+				"admin": map[string]interface{}{
+					"password": "secret",
+				},
+				"server": map[string]interface{}{
+					"replicas": 3,
+				},
+			},
+			expected: []string{"admin.password", "server.replicas"},
+		},
+		{
+			name: "deeply nested structure",
+			input: map[string]interface{}{
+				"server": map[string]interface{}{
+					"resources": map[string]interface{}{
+						"requests": map[string]interface{}{
+							"cpu": "100m",
+						},
+					},
+				},
+			},
+			expected: []string{"server.resources.requests.cpu"},
+		},
+		{
+			name: "mixed flat and nested",
+			input: map[string]interface{}{
+				"enabled": true,
+				"server": map[string]interface{}{
+					"port": 8080,
+				},
+			},
+			expected: []string{"enabled", "server.port"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := flattenKeys(tt.input, "")
+
+			if len(result) != len(tt.expected) {
+				t.Errorf("expected %d keys, got %d: %v", len(tt.expected), len(result), result)
+				return
+			}
+
+			// Convert to map for easier comparison (order doesn't matter)
+			resultMap := make(map[string]bool)
+			for _, key := range result {
+				resultMap[key] = true
+			}
+
+			for _, expectedKey := range tt.expected {
+				if !resultMap[expectedKey] {
+					t.Errorf("expected key '%s' not found in result: %v", expectedKey, result)
+				}
+			}
+		})
+	}
 }

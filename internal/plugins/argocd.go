@@ -87,13 +87,40 @@ func (a *Argocd) ValidateOverrideValues(overrides map[string]interface{}) error 
 		"admin.password": true,
 	}
 
-	for key := range overrides {
+	// Flatten the nested override structure back to dot notation for validation
+	flattenedKeys := flattenKeys(overrides, "")
+
+	for _, key := range flattenedKeys {
 		if !allowedKeys[key] {
 			return fmt.Errorf("override key '%s' is not allowed for argocd plugin. Allowed keys: %v", key, getKeys(allowedKeys))
 		}
 	}
 
 	return nil
+}
+
+// flattenKeys converts nested map structure back to dot notation keys for validation
+func flattenKeys(m map[string]interface{}, prefix string) []string {
+	var keys []string
+
+	for k, v := range m {
+		var fullKey string
+		if prefix == "" {
+			fullKey = k
+		} else {
+			fullKey = prefix + "." + k
+		}
+
+		if nestedMap, ok := v.(map[string]interface{}); ok {
+			// Recursively flatten nested maps
+			keys = append(keys, flattenKeys(nestedMap, fullKey)...)
+		} else {
+			// This is a leaf value, add the full key
+			keys = append(keys, fullKey)
+		}
+	}
+
+	return keys
 }
 
 // SetOverrideValues implements OverridablePlugin interface
