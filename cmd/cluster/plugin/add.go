@@ -45,7 +45,18 @@ var addCmd = &cobra.Command{
 			logger.Infoln("Override mode enabled with values: %v", overrideValues)
 		}
 
-		installOrder, err := plugins.ValidateAndGetInstallOrder(pName, c.KubeConfig, ip, c.Name)
+		// Get dependency validation with special handling for override mode
+		var installOrder []string
+		var err error
+
+		if override {
+			// For override mode, get install order without considering current installation status
+			installOrder, err = getInstallOrderForOverride(pName, c.KubeConfig, ip, c.Name)
+		} else {
+			// Normal mode - respect current installation status
+			installOrder, err = plugins.ValidateAndGetInstallOrder(pName, c.KubeConfig, ip, c.Name)
+		}
+
 		if err != nil {
 			logger.Errorln("Dependency validation failed: %v", err)
 			return
@@ -217,4 +228,28 @@ func init() {
 		logger.Errorln("Failed to mark cluster flag as required: %v", err)
 	}
 	PluginCmd.AddCommand(addCmd)
+}
+
+// getInstallOrderForOverride gets the install order for override mode,
+// bypassing current installation status to ensure the target plugin is always included
+func getInstallOrderForOverride(targetPlugin string, kubeConfig, masterClusterIP, clusterName string) ([]string, error) {
+	// Get all dependency plugins
+	dependencyPlugins, err := plugins.CreateDependencyPluginsList(kubeConfig, masterClusterIP, clusterName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create dependency plugins list: %w", err)
+	}
+
+	// Create validator
+	validator := plugins.NewDependencyValidator(dependencyPlugins)
+
+	// For override mode, pretend no plugins are installed so everything gets included
+	emptyInstalledList := []string{}
+
+	// Validate installation order (will include all dependencies + target plugin)
+	installOrder, err := validator.ValidateInstallation([]string{targetPlugin}, emptyInstalledList)
+	if err != nil {
+		return nil, fmt.Errorf("dependency validation failed: %w", err)
+	}
+
+	return installOrder, nil
 }
