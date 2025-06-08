@@ -26,10 +26,11 @@ type LoadBalancer struct {
 	KubeConfig      string
 	k8sClient       *k8s.K8sClient
 	MasterClusterIP string
+	ClusterName     string
 	*BasePlugin
 }
 
-func NewLoadBalancer(kubeConfig string, masterClusterIP string) (*LoadBalancer, error) {
+func NewLoadBalancer(kubeConfig string, masterClusterIP string, clusterName string) (*LoadBalancer, error) {
 	c, err := k8s.NewK8sClient(kubeConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create k8s client: %w", err)
@@ -38,6 +39,7 @@ func NewLoadBalancer(kubeConfig string, masterClusterIP string) (*LoadBalancer, 
 		KubeConfig:      kubeConfig,
 		k8sClient:       c,
 		MasterClusterIP: masterClusterIP,
+		ClusterName:     clusterName,
 	}
 	lb.BasePlugin = NewBasePlugin(kubeConfig, lb)
 	return lb, nil
@@ -102,7 +104,8 @@ func (l *LoadBalancer) ensure() error {
 			if err != nil {
 				continue
 			}
-			_, err = l.k8sClient.Clientset.AdmissionregistrationV1().
+			_, err = l.k8sClient.Clientset.
+				AdmissionregistrationV1().
 				ValidatingWebhookConfigurations().
 				Get(ctx, "metallb-webhook-configuration", metav1.GetOptions{})
 			if err != nil {
@@ -290,9 +293,41 @@ func (l *LoadBalancer) deleteValidationWebhookConfig() error {
 func (l *LoadBalancer) getIPRange() string {
 	ipParts := strings.Split(l.MasterClusterIP, ".")
 	dhcp := ipParts[:3]
-	start := fmt.Sprintf("%s.100", strings.Join(dhcp, "."))
-	end := fmt.Sprintf("%s.200", strings.Join(dhcp, "."))
-	return fmt.Sprintf("%s-%s", start, end)
+	
+	// Use cluster name to determine IP range offset to avoid conflicts
+	clusterOffset := l.getClusterOffset()
+	
+	// Start from 100 and allocate 5 IPs per cluster to support more clusters
+	// This allows for 31 clusters (100-254 range with 5 IPs each)
+	baseStart := 100
+	rangeSize := 5
+	
+	start := baseStart + (clusterOffset * rangeSize)
+	end := start + rangeSize - 1
+	
+	// Ensure we don't exceed 254 (keeping 255 reserved)
+	if end > 254 {
+		// Fallback to a smaller range if we're near the limit
+		start = 250
+		end = 254
+		logger.Warnln("Cluster %s: IP range limited due to address space constraints", l.ClusterName)
+	}
+	
+	startIP := fmt.Sprintf("%s.%d", strings.Join(dhcp, "."), start)
+	endIP := fmt.Sprintf("%s.%d", strings.Join(dhcp, "."), end)
+	return fmt.Sprintf("%s-%s", startIP, endIP)
+}
+
+// getClusterOffset generates a consistent offset based on cluster name
+// Returns a value between 0-30 to support up to 31 clusters with 5 IPs each
+func (l *LoadBalancer) getClusterOffset() int {
+	// Simple hash function to get a deterministic offset from cluster name
+	hash := 0
+	for _, c := range l.ClusterName {
+		hash += int(c)
+	}
+	// Return offset between 0-30 to allow for 31 clusters with 5 IPs each (100-254)
+	return hash % 31
 }
 
 func (l *LoadBalancer) GetDependencies() []string {

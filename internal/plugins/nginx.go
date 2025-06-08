@@ -102,7 +102,7 @@ func (n *Nginx) GetChartValues() map[string]interface{} {
 			},
 		},
 		"defaultBackend": map[string]interface{}{
-			"enabled": true,
+			"enabled": false,
 		},
 	}
 }

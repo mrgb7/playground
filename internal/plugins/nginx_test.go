@@ -108,7 +108,7 @@ func TestNginx_GetChartValues(t *testing.T) {
 	}
 
 	enabled, ok := defaultBackend["enabled"].(bool)
-	if !ok || !enabled {
+	if !ok || enabled {
 		t.Errorf("expected defaultBackend to be enabled, got %v", enabled)
 	}
 }

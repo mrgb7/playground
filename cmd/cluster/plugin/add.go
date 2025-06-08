@@ -54,12 +54,11 @@ var addCmd = &cobra.Command{
 			}
 			status := plugin.Status()
 			if plugins.IsPluginInstalled(status) {
-				logger.Infoln("Plugin %s is already installed, skipping", pluginName)
 				continue
 			}
 
 			logger.Infoln("Installing plugin: %s", pluginName)
-			err := plugin.Install(c.KubeConfig, c.Name)
+			err := plugin.Install(c.KubeConfig, c.Name, true)
 			if err != nil {
 				logger.Errorln("Error installing plugin %s: %v", pluginName, err)
 				return
