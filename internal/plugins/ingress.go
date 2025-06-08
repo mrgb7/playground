@@ -181,10 +181,10 @@ func (i *Ingress) removeArgoCDIngress() error {
 	defer cancel()
 
 	err := i.k8sClient.
-		   Clientset.
-		   NetworkingV1().
-		   Ingresses("argocd").
-		   Delete(ctx, "argocd-server", metav1.DeleteOptions{})
+		Clientset.
+		NetworkingV1().
+		Ingresses("argocd").
+		Delete(ctx, "argocd-server", metav1.DeleteOptions{})
 	if err != nil && !strings.Contains(err.Error(), "not found") {
 		return fmt.Errorf("failed to delete ArgoCD ingress: %w", err)
 	}
@@ -201,9 +201,9 @@ func (i *Ingress) printHostInstructions() error {
 	var nginxIP string
 	for retries := 0; retries < 12; retries++ {
 		svc, err := i.k8sClient.
-			        Clientset.
-			        CoreV1().
-			        Services(NginxNamespace).Get(ctx, "nginx-ingress-ingress-nginx-controller", metav1.GetOptions{})
+			Clientset.
+			CoreV1().
+			Services(NginxNamespace).Get(ctx, "nginx-ingress-ingress-nginx-controller", metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to get nginx service: %w", err)
 		}
@@ -270,9 +270,9 @@ func (i *Ingress) isTLSClusterIssuerAvailable() bool {
 	tls := &TLS{}
 	issuerName := tls.GetClusterIssuerName()
 	_, err := i.k8sClient.
-		      Dynamic.
-		      Resource(gvr).
-		      Get(ctx, issuerName, metav1.GetOptions{})
+		Dynamic.
+		Resource(gvr).
+		Get(ctx, issuerName, metav1.GetOptions{})
 	return err == nil
 }
 
@@ -311,9 +311,9 @@ func (i *Ingress) updateExistingArgoCDIngress(
 	defer cancel()
 
 	_, err := i.k8sClient.Clientset.
-		      NetworkingV1().
-		      Ingresses("argocd").
-		      Update(ctx, existingIngress, metav1.UpdateOptions{})
+		NetworkingV1().
+		Ingresses("argocd").
+		Update(ctx, existingIngress, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update existing ArgoCD ingress: %w", err)
 	}
@@ -403,5 +403,5 @@ func (i *Ingress) createNewArgoCDIngress(hostname string, isTLSAvailable bool) e
 }
 
 func (i *Ingress) GetDependencies() []string {
-	return []string{"tls","nginx-ingress", "load-balancer"} // ingress depends on nginx-ingress and load-balancer
+	return []string{"tls", "nginx-ingress", "load-balancer"} // ingress depends on nginx-ingress and load-balancer
 }

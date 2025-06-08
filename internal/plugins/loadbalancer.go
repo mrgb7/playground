@@ -293,18 +293,18 @@ func (l *LoadBalancer) deleteValidationWebhookConfig() error {
 func (l *LoadBalancer) getIPRange() string {
 	ipParts := strings.Split(l.MasterClusterIP, ".")
 	dhcp := ipParts[:3]
-	
+
 	// Use cluster name to determine IP range offset to avoid conflicts
 	clusterOffset := l.getClusterOffset()
-	
+
 	// Start from 100 and allocate 5 IPs per cluster to support more clusters
 	// This allows for 31 clusters (100-254 range with 5 IPs each)
 	baseStart := 100
 	rangeSize := 5
-	
+
 	start := baseStart + (clusterOffset * rangeSize)
 	end := start + rangeSize - 1
-	
+
 	// Ensure we don't exceed 254 (keeping 255 reserved)
 	if end > 254 {
 		// Fallback to a smaller range if we're near the limit
@@ -312,7 +312,7 @@ func (l *LoadBalancer) getIPRange() string {
 		end = 254
 		logger.Warnln("Cluster %s: IP range limited due to address space constraints", l.ClusterName)
 	}
-	
+
 	startIP := fmt.Sprintf("%s.%d", strings.Join(dhcp, "."), start)
 	endIP := fmt.Sprintf("%s.%d", strings.Join(dhcp, "."), end)
 	return fmt.Sprintf("%s-%s", startIP, endIP)

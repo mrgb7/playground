@@ -582,7 +582,7 @@ func (t *TLS) validateCACertificate(certPEM []byte) error {
 
 func (t *TLS) DiagnoseCertificateIssues() error {
 	logger.Infoln("🔍 Diagnosing Certificate Issues for cluster: %s", t.ClusterName)
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -631,7 +631,7 @@ func (t *TLS) DiagnoseCertificateIssues() error {
 	}
 
 	logger.Infoln("📋 Diagnostic Certificate File: %s", tempFile.Name())
-	
+
 	if runtime.GOOS == "darwin" {
 		t.printMacOSDiagnostics(tempFile.Name())
 	}
