@@ -5,6 +5,8 @@ import (
 	"net"
 	"os"
 	"runtime"
+
+	"github.com/shirou/gopsutil/v3/mem"
 )
 
 // Platform functions that can be mocked in tests
@@ -20,9 +22,12 @@ func getAvailableCPUImpl() (int, error) {
 }
 
 func getAvailableMemoryImpl() (float64, error) {
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-	return float64(m.Sys) / (1024 * 1024 * 1024), nil
+	vmStat, err := mem.VirtualMemory()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get system memory info: %w", err)
+	}
+
+	return float64(vmStat.Total) / (1024 * 1024 * 1024), nil
 }
 
 func getAvailableDiskImpl() (float64, error) {
