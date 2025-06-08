@@ -71,7 +71,7 @@ var addCmd = &cobra.Command{
 				return
 			}
 
-			// Handle override mode
+			// Handle override mode first - force installation for target plugin
 			if override && pluginName == pName {
 				if err := handlePluginOverride(plugin, overrideValues, c.KubeConfig, c.Name); err != nil {
 					logger.Errorln("Error overriding plugin %s: %v", pluginName, err)
@@ -81,9 +81,10 @@ var addCmd = &cobra.Command{
 				continue
 			}
 
-			// Normal installation logic
+			// Normal installation logic - check if already installed (only for non-override plugins)
 			status := plugin.Status()
 			if plugins.IsPluginInstalled(status) {
+				logger.Infoln("Plugin %s is already installed, skipping", pluginName)
 				continue
 			}
 
@@ -111,8 +112,11 @@ func handlePluginOverride(plugin plugins.Plugin, overrideValues map[string]inter
 		overridable.SetOverrideValues(overrideValues)
 	}
 
-	// Force re-installation
+	// Force re-installation (bypasses status checks)
 	logger.Infoln("Force re-installing plugin with override values: %s", plugin.GetName())
+	logger.Debugf("Override values being applied: %v", overrideValues)
+
+	// This will trigger re-installation/upgrade regardless of current status
 	return plugin.Install(kubeConfig, clusterName, true)
 }
 

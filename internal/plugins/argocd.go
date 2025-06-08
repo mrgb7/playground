@@ -84,21 +84,7 @@ func (a *Argocd) Uninstall(kubeConfig, clusterName string, ensure ...bool) error
 // ValidateOverrideValues implements OverrideValidator interface
 func (a *Argocd) ValidateOverrideValues(overrides map[string]interface{}) error {
 	allowedKeys := map[string]bool{
-		"admin.password":                           true,
-		"server.replicas":                          true,
-		"server.resources.requests.memory":         true,
-		"server.resources.requests.cpu":            true,
-		"server.resources.limits.memory":           true,
-		"server.resources.limits.cpu":              true,
-		"redis.enabled":                            true,
-		"redis.resources.requests.memory":          true,
-		"redis.resources.requests.cpu":             true,
-		"applicationSet.enabled":                   true,
-		"notifications.enabled":                    true,
-		"dex.enabled":                              true,
-		"server.service.type":                      true,
-		"server.ingress.enabled":                   true,
-		"configs.secret.argocdServerAdminPassword": true,
+		"admin.password": true,
 	}
 
 	for key := range overrides {
