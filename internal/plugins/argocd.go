@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mrgb7/playground/internal/installer"
 	"github.com/mrgb7/playground/internal/k8s"
 	"github.com/mrgb7/playground/pkg/logger"
 	"gopkg.in/yaml.v3"
@@ -210,23 +211,93 @@ func (a *Argocd) Status() string {
 }
 
 func (a *Argocd) getChartValues() map[string]interface{} {
-	// Get default values
+	// Get default values from remote
 	defaultValues, err := a.getValuesContent()
 	if err != nil {
-		logger.Errorln("failed to get values content: %v", err)
-		return a.overrideValues // Return only override values if default fetch fails
+		logger.Errorln("failed to get default values content: %v", err)
+		defaultValues = make(map[string]interface{})
 	}
 
-	// If no override values, return defaults
+	// If no override values, return defaults (normal flow)
 	if len(a.overrideValues) == 0 {
 		return defaultValues
 	}
 
-	// Merge override values with defaults
-	mergedValues := mergeValues(defaultValues, a.overrideValues)
-	logger.Debugf("ArgoCD values merged with overrides: %v", a.overrideValues)
+	// For override mode, perform three-way merge:
+	// 1. Default values (base)
+	// 2. Current installed values (includes modifications by other plugins)
+	// 3. User override values (highest priority)
 
-	return mergedValues
+	currentValues := a.getCurrentInstalledValues()
+
+	// Three-way merge: defaults -> current -> overrides
+	mergedValues := mergeValues(defaultValues, currentValues)
+	finalValues := mergeValues(mergedValues, a.overrideValues)
+
+	logger.Debugf("ArgoCD three-way merge - defaults: %d keys, current: %d keys, overrides: %d keys",
+		len(defaultValues), len(currentValues), len(a.overrideValues))
+
+	return finalValues
+}
+
+// getCurrentInstalledValues retrieves the current Helm values for the installed ArgoCD instance
+func (a *Argocd) getCurrentInstalledValues() map[string]interface{} {
+	// Try to get current values from Helm release
+	currentValues, err := a.getHelmReleaseValues()
+	if err != nil {
+		logger.Warnf("Failed to get current installed values for ArgoCD: %v", err)
+		logger.Debugf("Will proceed with defaults + overrides only")
+		return make(map[string]interface{})
+	}
+
+	logger.Debugf("Retrieved current ArgoCD values with %d top-level keys", len(currentValues))
+	return currentValues
+}
+
+// getHelmReleaseValues retrieves the current values from the Helm release
+func (a *Argocd) getHelmReleaseValues() (map[string]interface{}, error) {
+	// Check what installer type was used for this plugin
+	installerType, err := a.Tracker.GetPluginInstaller(a.GetName())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get installer type: %w", err)
+	}
+
+	switch installerType {
+	case InstallerTypeHelm:
+		return a.getHelmValues()
+	case InstallerTypeArgoCD:
+		return a.getArgoCDApplicationValues()
+	default:
+		logger.Warnf("Unknown installer type '%s' for ArgoCD, cannot retrieve current values", installerType)
+		return make(map[string]interface{}), nil
+	}
+}
+
+// getHelmValues retrieves values from Helm release
+func (a *Argocd) getHelmValues() (map[string]interface{}, error) {
+	// Create a Helm installer to access Helm functionality
+	helmInstaller, err := installer.NewHelmInstaller(a.KubeConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Helm installer: %w", err)
+	}
+
+	// Use the Helm installer to get current values
+	currentValues, err := helmInstaller.GetCurrentValues(ArgocdReleaseName, ArgocdNamespace)
+	if err != nil {
+		// If release doesn't exist or other error, return empty values
+		logger.Debugf("Could not retrieve Helm values for %s: %v", ArgocdReleaseName, err)
+		return make(map[string]interface{}), nil
+	}
+
+	return currentValues, nil
+}
+
+// getArgoCDApplicationValues retrieves values from ArgoCD Application resource
+func (a *Argocd) getArgoCDApplicationValues() (map[string]interface{}, error) {
+	// For now, return empty map - this would need K8s client to get Application resource
+	// TODO: Implement actual ArgoCD Application values retrieval
+	logger.Debugf("ArgoCD Application values retrieval not yet implemented, using empty values")
+	return make(map[string]interface{}), nil
 }
 
 // mergeValues deeply merges override values into default values

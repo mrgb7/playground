@@ -339,3 +339,118 @@ func TestFlattenKeys(t *testing.T) {
 		})
 	}
 }
+
+func TestThreeWayMerge(t *testing.T) {
+	tests := []struct {
+		name      string
+		defaults  map[string]interface{}
+		current   map[string]interface{}
+		overrides map[string]interface{}
+		expected  map[string]interface{}
+	}{
+		{
+			name: "three-way merge preserves current modifications",
+			defaults: map[string]interface{}{
+				"server": map[string]interface{}{
+					"replicas": 1,
+					"port":     8080,
+				},
+				"redis": map[string]interface{}{
+					"enabled": false,
+				},
+			},
+			current: map[string]interface{}{
+				"server": map[string]interface{}{
+					"replicas": 1,
+					"port":     8080,
+					"ingress": map[string]interface{}{
+						"enabled": true,
+						"host":    "argocd.local",
+					},
+				},
+				"redis": map[string]interface{}{
+					"enabled": false,
+				},
+				"tls": map[string]interface{}{
+					"enabled":     true,
+					"certificate": "auto",
+				},
+			},
+			overrides: map[string]interface{}{
+				"admin": map[string]interface{}{
+					"password": "newsecret",
+				},
+				"server": map[string]interface{}{
+					"replicas": 3,
+				},
+			},
+			expected: map[string]interface{}{
+				"admin": map[string]interface{}{
+					"password": "newsecret",
+				},
+				"server": map[string]interface{}{
+					"replicas": 3, // Override takes precedence
+					"port":     8080,
+					"ingress": map[string]interface{}{
+						"enabled": true,
+						"host":    "argocd.local",
+					},
+				},
+				"redis": map[string]interface{}{
+					"enabled": false,
+				},
+				"tls": map[string]interface{}{
+					"enabled":     true,
+					"certificate": "auto",
+				},
+			},
+		},
+		{
+			name: "override takes precedence over current",
+			defaults: map[string]interface{}{
+				"setting": "default",
+			},
+			current: map[string]interface{}{
+				"setting": "current_modified",
+			},
+			overrides: map[string]interface{}{
+				"setting": "user_override",
+			},
+			expected: map[string]interface{}{
+				"setting": "user_override",
+			},
+		},
+		{
+			name: "current preserves additional fields not in defaults",
+			defaults: map[string]interface{}{
+				"basic": "setting",
+			},
+			current: map[string]interface{}{
+				"basic":   "setting",
+				"plugin1": "added_by_plugin",
+				"plugin2": "also_added",
+			},
+			overrides: map[string]interface{}{
+				"user": "override",
+			},
+			expected: map[string]interface{}{
+				"basic":   "setting",
+				"plugin1": "added_by_plugin",
+				"plugin2": "also_added",
+				"user":    "override",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Simulate three-way merge: defaults -> current -> overrides
+			step1 := mergeValues(tt.defaults, tt.current)
+			result := mergeValues(step1, tt.overrides)
+
+			if !deepEqual(result, tt.expected) {
+				t.Errorf("expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}

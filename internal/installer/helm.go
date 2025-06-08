@@ -208,3 +208,21 @@ func (h *HelmInstaller) addHelmRepo(options *InstallOptions) error {
 
 	return nil
 }
+
+// GetCurrentValues retrieves the current values from a Helm release
+func (h *HelmInstaller) GetCurrentValues(releaseName, namespace string) (map[string]interface{}, error) {
+	actionConfig, err := h.createHelmActionConfig(namespace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create helm action config: %w", err)
+	}
+
+	getValues := action.NewGetValues(actionConfig)
+	getValues.AllValues = true // Get all values, not just user-supplied ones
+
+	values, err := getValues.Run(releaseName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get values for release %s: %w", releaseName, err)
+	}
+
+	return values, nil
+}
