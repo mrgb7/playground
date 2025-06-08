@@ -157,13 +157,19 @@ func (t *TLS) generateCACertificate() ([]byte, []byte, error) {
 		return nil, nil, fmt.Errorf("failed to generate private key: %w", err)
 	}
 
+	// Generate a more unique serial number
+	serialNumber, err := rand.Int(rand.Reader, big.NewInt(1000000000000))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate serial number: %w", err)
+	}
+
 	template := x509.Certificate{
-		SerialNumber: big.NewInt(1),
+		SerialNumber: serialNumber,
 		Subject: pkix.Name{
 			Organization:  []string{fmt.Sprintf("%s Local CA", t.ClusterName)},
 			Country:       []string{"US"},
-			Province:      []string{""},
-			Locality:      []string{""},
+			Province:      []string{"CA"},
+			Locality:      []string{"San Francisco"},
 			StreetAddress: []string{""},
 			PostalCode:    []string{""},
 			CommonName:    fmt.Sprintf("%s Local CA", t.ClusterName),
@@ -171,15 +177,19 @@ func (t *TLS) generateCACertificate() ([]byte, []byte, error) {
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(CertValidityYears, 0, 0),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  true,
 		MaxPathLen:            0,
 		MaxPathLenZero:        true,
+		// Enhanced DNS names for better compatibility
 		DNSNames: []string{
 			fmt.Sprintf("*.%s.local", t.ClusterName),
 			fmt.Sprintf("%s.local", t.ClusterName),
+			fmt.Sprintf("*.argocd.%s.local", t.ClusterName),
+			fmt.Sprintf("argocd.%s.local", t.ClusterName),
 			"localhost",
+			"*.localhost",
 		},
 		IPAddresses: []net.IP{
 			net.IPv4(127, 0, 0, 1),
@@ -349,11 +359,61 @@ func (t *TLS) printMacOSInstructions(tempFile *os.File) {
 	logger.Infoln("5. Check 'Trust this certificate for identifying websites'")
 	logger.Infoln("6. Click 'OK'")
 	logger.Infoln("")
+	logger.Infoln("🔧 Enhanced Troubleshooting for macOS:")
+	logger.Infoln("")
+	logger.Infoln("If certificate is still invalid after trusting:")
+	logger.Infoln("")
+	logger.Infoln("1. Verify Certificate Installation:")
+	logger.Infoln("   security find-certificate -a -c '%s Local CA' /Library/Keychains/System.keychain", t.ClusterName)
+	logger.Infoln("   # Should show your certificate")
+	logger.Infoln("")
+	logger.Infoln("2. Check Certificate Trust Settings:")
+	logger.Infoln("   security trust-settings-show -d %s", tempFile.Name())
+	logger.Infoln("   # Should show 'Always Trust' settings")
+	logger.Infoln("")
+	logger.Infoln("3. Remove Existing Certificate (if updating):")
+	logger.Infoln("   sudo security delete-certificate -c '%s Local CA' /Library/Keychains/System.keychain", t.ClusterName)
+	logger.Infoln("   # Then re-add with Method 1 above")
+	logger.Infoln("")
+	logger.Infoln("4. Force Trust Settings (if GUI method didn't work):")
+	logger.Infoln("   sudo security add-trusted-cert -d -r trustRoot -p all \\")
+	logger.Infoln("     -k /Library/Keychains/System.keychain %s", tempFile.Name())
+	logger.Infoln("")
+	logger.Infoln("5. For Chrome Specific Issues:")
+	logger.Infoln("   # Completely quit Chrome")
+	logger.Infoln("   pkill -f Chrome")
+	logger.Infoln("   # Clear Chrome's certificate cache")
+	logger.Infoln("   rm -rf ~/Library/Application\\ Support/Google/Chrome/Default/Network\\ Service/")
+	logger.Infoln("   # Restart Chrome and test")
+	logger.Infoln("")
+	logger.Infoln("6. Safari Issues:")
+	logger.Infoln("   # Clear Safari cache")
+	logger.Infoln("   rm -rf ~/Library/Safari/LocalStorage/*")
+	logger.Infoln("   rm -rf ~/Library/Caches/com.apple.Safari/*")
+	logger.Infoln("")
+	logger.Infoln("7. System-wide Certificate Cache Clear:")
+	logger.Infoln("   # Clear system certificate cache")
+	logger.Infoln("   sudo dscacheutil -flushcache")
+	logger.Infoln("   sudo killall -HUP mDNSResponder")
+	logger.Infoln("")
+	logger.Infoln("8. Verify Domain Access:")
+	logger.Infoln("   # Test certificate validation")
+	logger.Infoln("   openssl s_client -connect %s.local:443 -servername %s.local", t.ClusterName, t.ClusterName)
+	logger.Infoln("   # Should show 'Verify return code: 0 (ok)'")
+	logger.Infoln("")
+	logger.Infoln("9. Check /etc/hosts file:")
+	logger.Infoln("   # Ensure domain points to correct IP")
+	logger.Infoln("   grep '%s.local' /etc/hosts", t.ClusterName)
+	logger.Infoln("   # Should show: 127.0.0.1 *.%s.local", t.ClusterName)
+	logger.Infoln("")
 	logger.Infoln("⚠️  Important Notes:")
 	logger.Infoln("- After trusting the certificate, restart Chrome completely")
 	logger.Infoln("- Clear Chrome's cache (chrome://settings/clearBrowserData)")
 	logger.Infoln("- Make sure you're accessing sites with the exact domain: *.%s.local", t.ClusterName)
 	logger.Infoln("- For localhost testing, use: https://localhost or https://127.0.0.1")
+	logger.Infoln("- macOS requires both System keychain AND proper trust settings")
+	logger.Infoln("- Some browsers have their own certificate stores")
+	logger.Infoln("- Certificate must be in System keychain, not Login keychain")
 }
 
 func (t *TLS) printLinuxInstructions(tempFile *os.File) {
@@ -518,4 +578,104 @@ func (t *TLS) validateCACertificate(certPEM []byte) error {
 	}
 
 	return nil
+}
+
+func (t *TLS) DiagnoseCertificateIssues() error {
+	logger.Infoln("🔍 Diagnosing Certificate Issues for cluster: %s", t.ClusterName)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Check if CA secret exists
+	_, err := t.k8sClient.Clientset.CoreV1().Secrets(CertManagerNamespace).Get(
+		ctx, TLSSecretName, metav1.GetOptions{})
+	if err != nil {
+		logger.Errorln("❌ CA secret not found: %v", err)
+		return fmt.Errorf("CA secret not found, run TLS plugin installation first")
+	}
+	logger.Successln("✅ CA secret exists in cluster")
+
+	// Check if cluster issuer exists
+	gvr := schema.GroupVersionResource{
+		Group:    "cert-manager.io",
+		Version:  "v1",
+		Resource: "clusterissuers",
+	}
+	_, err = t.k8sClient.Dynamic.Resource(gvr).Get(
+		ctx, TLSClusterIssuerName, metav1.GetOptions{})
+	if err != nil {
+		logger.Errorln("❌ Cluster issuer not found: %v", err)
+		return fmt.Errorf("cluster issuer not found")
+	}
+	logger.Successln("✅ Cluster issuer exists")
+
+	// Generate fresh certificate for diagnosis
+	caCert, _, err := t.generateCACertificate()
+	if err != nil {
+		return fmt.Errorf("failed to generate CA certificate for diagnosis: %w", err)
+	}
+
+	// Create diagnostic certificate file
+	tempFile, err := os.CreateTemp("", fmt.Sprintf("%s-ca-diagnostic-*.crt", t.ClusterName))
+	if err != nil {
+		return fmt.Errorf("failed to create diagnostic temp file: %w", err)
+	}
+	defer func() {
+		if err := tempFile.Close(); err != nil {
+			logger.Debugln("Failed to close diagnostic temp file: %v", err)
+		}
+	}()
+
+	if _, err := tempFile.Write(caCert); err != nil {
+		return fmt.Errorf("failed to write diagnostic certificate: %w", err)
+	}
+
+	logger.Infoln("📋 Diagnostic Certificate File: %s", tempFile.Name())
+
+	if runtime.GOOS == "darwin" {
+		t.printMacOSDiagnostics(tempFile.Name())
+	}
+
+	return nil
+}
+
+func (t *TLS) printMacOSDiagnostics(certPath string) {
+	logger.Infoln("")
+	logger.Infoln("🔬 macOS Certificate Diagnostics:")
+	logger.Infoln("")
+	logger.Infoln("Run these commands to diagnose your certificate trust issues:")
+	logger.Infoln("")
+	logger.Infoln("1. Check if certificate exists in System keychain:")
+	logger.Infoln("   security find-certificate -a -c '%s Local CA' /Library/Keychains/System.keychain", t.ClusterName)
+	logger.Infoln("")
+	logger.Infoln("2. Check certificate details:")
+	logger.Infoln("   security find-certificate -p -c '%s Local CA' /Library/Keychains/System.keychain | openssl x509 -text -noout", t.ClusterName)
+	logger.Infoln("")
+	logger.Infoln("3. Check trust settings for the certificate:")
+	logger.Infoln("   security trust-settings-show -d %s", certPath)
+	logger.Infoln("")
+	logger.Infoln("4. Test SSL connection (if service is running):")
+	logger.Infoln("   echo | openssl s_client -connect %s.local:443 -servername %s.local 2>/dev/null | openssl x509 -noout -subject -issuer", t.ClusterName, t.ClusterName)
+	logger.Infoln("")
+	logger.Infoln("5. Check Chrome certificate store:")
+	logger.Infoln("   # Open Chrome -> Settings -> Privacy and Security -> Security -> Manage Certificates")
+	logger.Infoln("   # Look for '%s Local CA' in the Authorities tab", t.ClusterName)
+	logger.Infoln("")
+	logger.Infoln("6. Common Issues and Solutions:")
+	logger.Infoln("")
+	logger.Infoln("   Issue: 'Certificate not trusted'")
+	logger.Infoln("   Solution: Certificate might be in Login keychain instead of System keychain")
+	logger.Infoln("   Fix: sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain %s", certPath)
+	logger.Infoln("")
+	logger.Infoln("   Issue: 'Chrome still shows warning'")
+	logger.Infoln("   Solution: Chrome uses its own certificate store")
+	logger.Infoln("   Fix: Import certificate directly in Chrome settings")
+	logger.Infoln("")
+	logger.Infoln("   Issue: 'Domain name mismatch'")
+	logger.Infoln("   Solution: Ensure you're accessing the exact domains listed in the certificate")
+	logger.Infoln("   Certificate covers: *.%s.local, %s.local, localhost", t.ClusterName, t.ClusterName)
+	logger.Infoln("")
+	logger.Infoln("   Issue: 'No route to host'")
+	logger.Infoln("   Solution: Add domain to /etc/hosts")
+	logger.Infoln("   Fix: echo '127.0.0.1 %s.local' | sudo tee -a /etc/hosts", t.ClusterName)
 }

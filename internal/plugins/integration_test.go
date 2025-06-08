@@ -20,7 +20,7 @@ func TestPluginDependencyIntegration(t *testing.T) {
 	plugins = append(plugins, NewNginx(""))
 
 	// Test LoadBalancer separately since it requires additional parameters
-	lb, err := NewLoadBalancer("", "")
+	lb, err := NewLoadBalancer("", "", "test-cluster")
 	if err != nil {
 		t.Logf("LoadBalancer creation failed (expected in test): %v", err)
 	} else {
