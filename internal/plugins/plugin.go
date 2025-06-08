@@ -8,6 +8,16 @@ type Plugin interface {
 	GetOptions() PluginOptions
 }
 
+// OverrideValidator validates override values for plugins that support them
+type OverrideValidator interface {
+	ValidateOverrideValues(overrides map[string]interface{}) error
+}
+
+// OverridablePlugin allows plugins to accept override values
+type OverridablePlugin interface {
+	SetOverrideValues(overrides map[string]interface{})
+}
+
 type PluginOptions struct {
 	Version          *string
 	Namespace        *string

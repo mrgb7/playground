@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/mrgb7/playground/internal/k8s"
@@ -17,7 +18,8 @@ import (
 type Argocd struct {
 	KubeConfig string
 	*BasePlugin
-	Tracker *InstallerTracker
+	Tracker        *InstallerTracker
+	overrideValues map[string]interface{}
 }
 
 var (
@@ -42,8 +44,9 @@ func NewArgocd(kubeConfig string) (*Argocd, error) {
 		return nil, fmt.Errorf("failed to create installer tracker: %w", err)
 	}
 	argo := &Argocd{
-		KubeConfig: kubeConfig,
-		Tracker:    t,
+		KubeConfig:     kubeConfig,
+		Tracker:        t,
+		overrideValues: make(map[string]interface{}),
 	}
 	argo.BasePlugin = NewBasePlugin(kubeConfig, argo)
 	return argo, nil
@@ -76,6 +79,48 @@ func (a *Argocd) Uninstall(kubeConfig, clusterName string, ensure ...bool) error
 	}
 
 	return a.UnifiedUninstall(kubeConfig, clusterName, ensure...)
+}
+
+// ValidateOverrideValues implements OverrideValidator interface
+func (a *Argocd) ValidateOverrideValues(overrides map[string]interface{}) error {
+	allowedKeys := map[string]bool{
+		"admin.password":                           true,
+		"server.replicas":                          true,
+		"server.resources.requests.memory":         true,
+		"server.resources.requests.cpu":            true,
+		"server.resources.limits.memory":           true,
+		"server.resources.limits.cpu":              true,
+		"redis.enabled":                            true,
+		"redis.resources.requests.memory":          true,
+		"redis.resources.requests.cpu":             true,
+		"applicationSet.enabled":                   true,
+		"notifications.enabled":                    true,
+		"dex.enabled":                              true,
+		"server.service.type":                      true,
+		"server.ingress.enabled":                   true,
+		"configs.secret.argocdServerAdminPassword": true,
+	}
+
+	for key := range overrides {
+		if !allowedKeys[key] {
+			return fmt.Errorf("override key '%s' is not allowed for argocd plugin. Allowed keys: %v", key, getKeys(allowedKeys))
+		}
+	}
+
+	return nil
+}
+
+// SetOverrideValues implements OverridablePlugin interface
+func (a *Argocd) SetOverrideValues(overrides map[string]interface{}) {
+	a.overrideValues = overrides
+}
+
+func getKeys(m map[string]bool) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }
 
 func (a *Argocd) checkUsage() error {
@@ -152,12 +197,95 @@ func (a *Argocd) Status() string {
 }
 
 func (a *Argocd) getChartValues() map[string]interface{} {
-	val, err := a.getValuesContent()
+	// Get default values
+	defaultValues, err := a.getValuesContent()
 	if err != nil {
 		logger.Errorln("failed to get values content: %v", err)
-		return nil
+		return a.overrideValues // Return only override values if default fetch fails
 	}
-	return val
+
+	// If no override values, return defaults
+	if len(a.overrideValues) == 0 {
+		return defaultValues
+	}
+
+	// Merge override values with defaults
+	mergedValues := mergeValues(defaultValues, a.overrideValues)
+	logger.Debugf("ArgoCD values merged with overrides: %v", a.overrideValues)
+
+	return mergedValues
+}
+
+// mergeValues deeply merges override values into default values
+func mergeValues(defaults, overrides map[string]interface{}) map[string]interface{} {
+	if defaults == nil {
+		defaults = make(map[string]interface{})
+	}
+
+	result := make(map[string]interface{})
+
+	// Copy defaults
+	for k, v := range defaults {
+		result[k] = v
+	}
+
+	// Apply overrides with proper deep merging
+	for key, value := range overrides {
+		if strings.Contains(key, ".") {
+			// Handle dot notation keys
+			setNestedMapValue(result, key, value)
+		} else {
+			// Handle direct keys with potential deep merging
+			if existingValue, exists := result[key]; exists {
+				if existingMap, ok := existingValue.(map[string]interface{}); ok {
+					if valueMap, ok := value.(map[string]interface{}); ok {
+						// Both are maps, merge them recursively
+						result[key] = mergeValues(existingMap, valueMap)
+					} else {
+						// Override with the new value
+						result[key] = value
+					}
+				} else {
+					// Override with the new value
+					result[key] = value
+				}
+			} else {
+				// Key doesn't exist, add it
+				result[key] = value
+			}
+		}
+	}
+
+	return result
+}
+
+// setNestedMapValue sets a value in a nested map using dot notation
+func setNestedMapValue(m map[string]interface{}, key string, value interface{}) {
+	keys := splitKey(key)
+	current := m
+
+	// Navigate to the nested map, creating maps as needed
+	for _, k := range keys[:len(keys)-1] {
+		if _, exists := current[k]; !exists {
+			current[k] = make(map[string]interface{})
+		}
+		if nested, ok := current[k].(map[string]interface{}); ok {
+			current = nested
+		} else {
+			// If key exists but is not a map, replace it
+			current[k] = make(map[string]interface{})
+			current = current[k].(map[string]interface{})
+		}
+	}
+
+	// Set the final value
+	finalKey := keys[len(keys)-1]
+	current[finalKey] = value
+}
+
+// splitKey splits a dot-notation key into parts
+func splitKey(key string) []string {
+	return strings.Split(key, ".")
 }
 
 func (a *Argocd) GetDependencies() []string {
