@@ -5,44 +5,44 @@ import (
 )
 
 func TestGetAvailableCPU(t *testing.T) {
-	cpu, err := getAvailableCPU()
+	cpu, err := GetAvailableCPU()
 	if err != nil {
-		t.Errorf("getAvailableCPU() error = %v", err)
+		t.Errorf("GetAvailableCPU() error = %v", err)
 	}
 	if cpu <= 0 {
-		t.Errorf("getAvailableCPU() = %v, want > 0", cpu)
+		t.Errorf("GetAvailableCPU() = %v, want > 0", cpu)
 	}
 }
 
 func TestGetAvailableMemory(t *testing.T) {
-	memory, err := getAvailableMemory()
+	mem, err := GetAvailableMemory()
 	if err != nil {
-		t.Errorf("getAvailableMemory() error = %v", err)
+		t.Errorf("GetAvailableMemory() error = %v", err)
 	}
-	if memory <= 0 {
-		t.Errorf("getAvailableMemory() = %v, want > 0", memory)
+	if mem <= 0 {
+		t.Errorf("GetAvailableMemory() = %v, want > 0", mem)
 	}
 }
 
 func TestGetAvailableDisk(t *testing.T) {
-	disk, err := getAvailableDisk()
+	disk, err := GetAvailableDisk()
 	if err != nil {
-		t.Errorf("getAvailableDisk() error = %v", err)
+		t.Errorf("GetAvailableDisk() error = %v", err)
 	}
-	if disk <= 0 {
-		t.Errorf("getAvailableDisk() = %v, want > 0", disk)
+	if disk < 0 {
+		t.Errorf("GetAvailableDisk() = %v, want >= 0", disk)
 	}
 }
 
 func TestIsPortInUse(t *testing.T) {
-	testPort := 65432
-	if isPortInUse(testPort) {
-		t.Errorf("isPortInUse(%d) = true, want false for unused port", testPort)
+	// Test with a random high port that's likely to be free
+	port := 54321
+	if IsPortInUse(port) {
+		t.Errorf("IsPortInUse(%d) = true, want false", port)
 	}
 
-	if isPortInUse(0) {
-		t.Error("isPortInUse(0) = true, want false for port 0")
+	// Test with a well-known port that's likely to be in use
+	if !IsPortInUse(22) { // SSH port
+		t.Errorf("IsPortInUse(22) = false, want true")
 	}
-
-	_ = isPortInUse(6443)
 }

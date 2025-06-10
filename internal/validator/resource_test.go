@@ -137,13 +137,13 @@ func TestCalculateResourceRequirements(t *testing.T) {
 
 func TestValidateResources(t *testing.T) {
 	// Mock the platform-specific functions for testing
-	originalGetCPU := getAvailableCPU
-	originalGetMemory := getAvailableMemory
-	originalGetDisk := getAvailableDisk
+	originalGetCPU := GetAvailableCPU
+	originalGetMemory := GetAvailableMemory
+	originalGetDisk := GetAvailableDisk
 	defer func() {
-		getAvailableCPU = originalGetCPU
-		getAvailableMemory = originalGetMemory
-		getAvailableDisk = originalGetDisk
+		GetAvailableCPU = originalGetCPU
+		GetAvailableMemory = originalGetMemory
+		GetAvailableDisk = originalGetDisk
 	}()
 
 	tests := []struct {
@@ -231,9 +231,9 @@ func TestValidateResources(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Set up mocks
-			getAvailableCPU = func() (int, error) { return tt.mockCPU, nil }
-			getAvailableMemory = func() (float64, error) { return tt.mockMemory, nil }
-			getAvailableDisk = func() (float64, error) { return tt.mockDisk, nil }
+			GetAvailableCPU = func() (int, error) { return tt.mockCPU, nil }
+			GetAvailableMemory = func() (float64, error) { return tt.mockMemory, nil }
+			GetAvailableDisk = func() (float64, error) { return tt.mockDisk, nil }
 
 			status, err := ValidateResources(tt.requirements)
 			if err != nil {

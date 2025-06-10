@@ -110,19 +110,19 @@ func ValidateResources(requirements *ResourceRequirements) (*ResourceStatus, err
 	}
 
 	// Get current system resources
-	cpu, err := getAvailableCPU()
+	cpu, err := GetAvailableCPU()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get CPU info: %w", err)
 	}
 	status.AvailableCPU = cpu
 
-	memory, err := getAvailableMemory()
+	memory, err := GetAvailableMemory()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get memory info: %w", err)
 	}
 	status.AvailableMemory = memory
 
-	disk, err := getAvailableDisk()
+	disk, err := GetAvailableDisk()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get disk info: %w", err)
 	}

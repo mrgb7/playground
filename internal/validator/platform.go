@@ -11,17 +11,17 @@ import (
 
 // Platform functions that can be mocked in tests
 var (
-	getAvailableCPU    = getAvailableCPUImpl
-	getAvailableMemory = getAvailableMemoryImpl
-	getAvailableDisk   = getAvailableDiskImpl
-	isPortInUse        = isPortInUseImpl
+	GetAvailableCPU    = getAvailableCPU
+	GetAvailableMemory = getAvailableMemory
+	GetAvailableDisk   = getAvailableDisk
+	IsPortInUse        = isPortInUse
 )
 
-func getAvailableCPUImpl() (int, error) {
+func getAvailableCPU() (int, error) {
 	return runtime.NumCPU(), nil
 }
 
-func getAvailableMemoryImpl() (float64, error) {
+func getAvailableMemory() (float64, error) {
 	vmStat, err := mem.VirtualMemory()
 	if err != nil {
 		return 0, fmt.Errorf("failed to get system memory info: %w", err)
@@ -30,7 +30,7 @@ func getAvailableMemoryImpl() (float64, error) {
 	return float64(vmStat.Total) / (1024 * 1024 * 1024), nil
 }
 
-func getAvailableDiskImpl() (float64, error) {
+func getAvailableDisk() (float64, error) {
 	wd, err := os.Getwd()
 	if err != nil {
 		return 0, fmt.Errorf("failed to get working directory: %w", err)
@@ -45,7 +45,7 @@ func getAvailableDiskImpl() (float64, error) {
 	return available / 1024 / 1024 / 1024, nil
 }
 
-func isPortInUseImpl(port int) bool {
+func isPortInUse(port int) bool {
 	addr := fmt.Sprintf(":%d", port)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {

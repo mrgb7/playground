@@ -7,19 +7,19 @@ import (
 
 // Save original functions
 var (
-	originalGetCPU      = getAvailableCPU
-	originalGetMemory   = getAvailableMemory
-	originalGetDisk     = getAvailableDisk
-	originalIsPortInUse = isPortInUse
+	originalGetCPU      = GetAvailableCPU
+	originalGetMemory   = GetAvailableMemory
+	originalGetDisk     = GetAvailableDisk
+	originalIsPortInUse = IsPortInUse
 )
 
 func TestResourceValidationIntegration(t *testing.T) {
 	// Restore original functions after test
 	defer func() {
-		getAvailableCPU = originalGetCPU
-		getAvailableMemory = originalGetMemory
-		getAvailableDisk = originalGetDisk
-		isPortInUse = originalIsPortInUse
+		GetAvailableCPU = originalGetCPU
+		GetAvailableMemory = originalGetMemory
+		GetAvailableDisk = originalGetDisk
+		IsPortInUse = originalIsPortInUse
 	}()
 
 	tests := []struct {
@@ -129,10 +129,10 @@ func TestResourceValidationIntegration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Set up mocks
-			getAvailableCPU = func() (int, error) { return tt.mockCPU, nil }
-			getAvailableMemory = func() (float64, error) { return tt.mockMemory, nil }
-			getAvailableDisk = func() (float64, error) { return tt.mockDisk, nil }
-			isPortInUse = func(port int) bool { return tt.mockPortInUse }
+			GetAvailableCPU = func() (int, error) { return tt.mockCPU, nil }
+			GetAvailableMemory = func() (float64, error) { return tt.mockMemory, nil }
+			GetAvailableDisk = func() (float64, error) { return tt.mockDisk, nil }
+			IsPortInUse = func(port int) bool { return tt.mockPortInUse }
 
 			// Calculate resource requirements
 			requirements, err := CalculateResourceRequirements(
