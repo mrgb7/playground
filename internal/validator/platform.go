@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
@@ -36,13 +37,14 @@ func getAvailableDisk() (float64, error) {
 		return 0, fmt.Errorf("failed to get working directory: %w", err)
 	}
 
-	info, err := os.Stat(wd)
+	usage, err := disk.Usage(wd)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get filesystem stats: %w", err)
+		return 0, fmt.Errorf("failed to get disk usage info: %w", err)
 	}
 
-	available := float64(info.Size())
-	return available / 1024 / 1024 / 1024, nil
+	// Convert bytes to GB
+	availableGB := float64(usage.Free) / (1024 * 1024 * 1024)
+	return availableGB, nil
 }
 
 func isPortInUse(port int) bool {
