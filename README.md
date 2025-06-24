@@ -409,6 +409,107 @@ When no custom resources are specified, the following defaults are used:
 - Memory: Must be specified with `G` (GB) or `M` (MB) suffix
 - Disk: Must be specified with `G` (GB), `M` (MB), or `T` (TB) suffix
 
+## Resource Validation
+
+The system automatically validates host resources before cluster creation to ensure sufficient capacity. This validation is built into the cluster creation process and helps prevent resource-related failures.
+
+### Automatic Validation
+
+Resource validation runs automatically during cluster creation:
+```bash
+playground cluster create --name my-cluster
+```
+
+The system checks:
+- Available CPU cores
+- Available memory (RAM)
+- Available disk space
+- Port availability
+- Container runtime status
+
+### Resource Requirements
+
+Resource requirements are calculated based on your cluster configuration:
+
+#### Master Node (Required)
+- CPU: Minimum 2 cores
+- Memory: Minimum 2GB
+- Disk: Minimum 20GB
+
+#### Worker Nodes (Per Node)
+- CPU: Minimum 2 cores
+- Memory: Minimum 2GB
+- Disk: Minimum 20GB
+
+#### System Reserve
+- 20% of total memory reserved for system operations
+- 20% of available disk space reserved for system operations
+
+### Validation Indicators
+
+The system uses the following indicators to show resource status:
+- ✅ Resource meets or exceeds requirements
+- ❌ Resource is insufficient (critical)
+- ⚠️ Resource is below recommended (warning)
+
+### Example Output
+
+```
+Validating host resources...
+Resource Status:
+  CPU: ✅ 8 cores available (4 required)
+  Memory: ❌ 6 GB available (8 GB required)
+  Disk: ⚠️ 15 GB available (20 GB recommended)
+
+Recommendations:
+- Free up at least 2 GB of memory to meet minimum requirements
+- Close unnecessary applications to free memory
+- Consider cleaning up disk space for optimal performance
+```
+
+### Bypass Options
+
+You can bypass validation in two ways:
+
+1. Skip validation entirely:
+```bash
+playground create cluster my-cluster --skip-host-validation
+```
+
+2. Force creation despite warnings:
+```bash
+playground create cluster my-cluster --force
+```
+
+### Resource Calculation
+
+The system calculates required resources based on:
+1. Master node requirements
+2. Worker node requirements × number of workers
+3. System reserve (20% buffer)
+
+Example calculation for a 3-node cluster (1 master + 2 workers):
+- CPU: 2 + (2 × 2) = 6 cores
+- Memory: 2GB + (2GB × 2) = 6GB
+- Disk: 20GB + (20GB × 2) = 60GB
+
+### Best Practices
+
+1. **Resource Planning**
+   - Plan resources based on expected workload
+   - Consider future scaling needs
+   - Account for system overhead
+
+2. **System Maintenance**
+   - Regularly monitor resource usage
+   - Clean up unused resources
+   - Keep system updated
+
+3. **Troubleshooting**
+   - Check system load before cluster creation
+   - Monitor resource usage during operation
+   - Use `--skip-host-validation` only when necessary
+
 ## Security Considerations
 
 - Kubeconfig files are temporarily stored in system temp directory
@@ -450,3 +551,4 @@ For issues and questions:
 - Open an issue on GitHub
 - Check the troubleshooting section
 - Review existing issues and discussions
+
